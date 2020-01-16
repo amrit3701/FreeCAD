@@ -1,7 +1,5 @@
 #***************************************************************************
-#*                                                                         *
-#*   Copyright (c) 2011                                                    *
-#*   Yorik van Havre <yorik@uncreated.net>                                 *
+#*   Copyright (c) 2011 Yorik van Havre <yorik@uncreated.net>              *
 #*                                                                         *
 #*   This program is free software; you can redistribute it and/or modify  *
 #*   it under the terms of the GNU Lesser General Public License (LGPL)    *
@@ -90,7 +88,7 @@ def makeWindow(baseobj=None,width=None,height=None,parts=None,name="Window"):
         obj.WindowParts = parts
     else:
         if baseobj:
-            if baseobj.isDerivedFrom("Part::Part2DObject"):
+            if baseobj.getLinkedObject().isDerivedFrom("Part::Part2DObject"):
                 if baseobj.Shape.Wires:
                     i = 0
                     ws = ''
@@ -358,7 +356,7 @@ def makeWindowPreset(windowtype,width,height,h1,h2,h3,w1,w2,o1,o2,placement=None
                 s.renameConstraint(58,'Frame8')
                 s.renameConstraint(59,'Frame9')
                 s.renameConstraint(60,'F10')
-                s.setExpression('Constraints.F10','-Constraints.Frame5')
+                s.setExpression('.Constraints.F10','-.Constraints.Frame5')
             fw = str(w2)
             if w2 == w1:
                 fw = "0.00+V"
@@ -620,7 +618,7 @@ class _CommandWindow:
         if FreeCADGui.Selection.getSelectionEx():
             FreeCADGui.draftToolBar.offUi()
             obj = self.sel[0]
-            if obj.isDerivedFrom("Part::Feature"):
+            if hasattr(obj,'Shape'):
                 if obj.Shape.Wires and (not obj.Shape.Solids) and (not obj.Shape.Shells):
                     FreeCADGui.Control.closeDialog()
                     host = None
@@ -670,7 +668,7 @@ class _CommandWindow:
         "this function is called by the snapper when it has a 3D point"
 
         self.tracker.finalize()
-        if point == None:
+        if point is None:
             return
         # if something was selected, override the underlying object
         if self.sel:
@@ -1085,11 +1083,10 @@ class _Window(ArchComponent.Component):
                     e = obj.Base.Shape.Edges[hinge]
                     ev1 = e.Vertexes[0].Point
                     ev2 = e.Vertexes[-1].Point
-                    if (ev2.z - ev1.z) < 0.1**Draft.precision():
-                        if ev2.y < ev1.y:
-                            ev1,ev2 = ev2,ev1
-                    elif ev2.z < ev1.z:
+                    # choose the one with lowest z to draw the symbol
+                    if ev2.z < ev1.z:
                         ev1,ev2 = ev2,ev1
+                    # find the point most distant from the hinge
                     p = None
                     d = 0
                     for v in shape.Vertexes:
@@ -1098,13 +1095,16 @@ class _Window(ArchComponent.Component):
                             d = dist
                             p = v.Point
                     if p:
+                        # bring that point to the level of ev1 if needed
                         chord = p.sub(ev1)
                         enorm = ev2.sub(ev1)
                         proj = DraftVecUtils.project(chord,enorm)
                         v1 = ev1
                         if proj.Length > 0:
-                            chord = p.sub(ev1.add(proj))
-                            p = v1.add(chord)
+                            #chord = p.sub(ev1.add(proj))
+                            #p = v1.add(chord)
+                            p = p.add(proj.negative())
+                        # calculate symbols
                         v4 = p.add(DraftVecUtils.scale(enorm,0.5))
                         if omode == 1: # Arc 90
                             v2 = v1.add(DraftVecUtils.rotate(chord,math.pi/4,enorm))
@@ -1252,7 +1252,7 @@ class _Window(ArchComponent.Component):
         self.sshapes = []
         self.vshapes = []
         if obj.Base:
-            if obj.Base.isDerivedFrom("Part::Feature"):
+            if hasattr(obj,'Shape'):
                 if hasattr(obj,"WindowParts"):
                     if obj.WindowParts and (len(obj.WindowParts)%5 == 0):
                         shapes = self.buildShapes(obj)
@@ -1297,7 +1297,7 @@ class _Window(ArchComponent.Component):
         # check if we have a custom subvolume
         if hasattr(obj,"Subvolume"):
             if obj.Subvolume:
-                if obj.Subvolume.isDerivedFrom("Part::Feature"):
+                if hasattr(obj.Subvolume,'Shape'):
                     if not obj.Subvolume.Shape.isNull():
                         sh = obj.Subvolume.Shape.copy()
                         if plac:
@@ -1709,11 +1709,11 @@ class _ArchWindowTaskPanel:
     def getIcon(self,obj):
 
         if hasattr(obj.ViewObject,"Proxy"):
-            return QtGui.QIcon(obj.ViewObject.Proxy.getIcon())
-        elif obj.isDerivedFrom("Sketcher::SketchObject"):
+            if hasattr(obj.ViewObject.Proxy,"getIcon"):
+                return QtGui.QIcon(obj.ViewObject.Proxy.getIcon())
+        if obj.isDerivedFrom("Sketcher::SketchObject"):
             return QtGui.QIcon(":/icons/Sketcher_Sketch.svg")
-        else:
-            return QtGui.QIcon(":/icons/Tree_Part.svg")
+        return QtGui.QIcon(":/icons/Tree_Part.svg")
 
     def update(self):
 
@@ -1727,7 +1727,7 @@ class _ArchWindowTaskPanel:
                 item = QtGui.QTreeWidgetItem(self.tree)
                 item.setText(0,self.obj.Base.Name)
                 item.setIcon(0,self.getIcon(self.obj.Base))
-                if self.obj.Base.isDerivedFrom("Part::Feature"):
+                if hasattr(self.obj.Base,'Shape'):
                     i = 0
                     for w in self.obj.Base.Shape.Wires:
                         if w.isClosed():

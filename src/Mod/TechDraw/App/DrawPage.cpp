@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Copyright (c) Jürgen Riegel          (juergen.riegel@web.de) 2002     *
+ *   Copyright (c) 2002 Jürgen Riegel <juergen.riegel@web.de>              *
  *                                                                         *
  *   This file is part of the FreeCAD CAx development system.              *
  *                                                                         *
@@ -50,6 +50,7 @@
 #include "DrawViewPart.h"
 #include "DrawViewDimension.h"
 #include "DrawViewBalloon.h"
+#include "DrawLeaderLine.h"
 
 #include <Mod/TechDraw/App/DrawPagePy.h>  // generated from DrawPagePy.xml
 
@@ -75,12 +76,13 @@ DrawPage::DrawPage(void)
 {
     static const char *group = "Page";
     nowUnsetting = false;
+    forceRedraw(false);
     
     Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter()
         .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/TechDraw/General");
-    bool autoUpdate = hGrp->GetBool("KeepPagesUpToDate", 1l);
+    bool autoUpdate = hGrp->GetBool("KeepPagesUpToDate", true);   //this is the default value for new pages!
 
-    ADD_PROPERTY_TYPE(KeepUpdated, (autoUpdate), group, (App::PropertyType)(App::Prop_None), "Keep page in sync with model");
+    ADD_PROPERTY_TYPE(KeepUpdated, (autoUpdate), group, (App::PropertyType)(App::Prop_Output), "Keep page in sync with model");
     ADD_PROPERTY_TYPE(Template, (0), group, (App::PropertyType)(App::Prop_None), "Attached Template");
     Template.setScope(App::LinkScope::Global);
     ADD_PROPERTY_TYPE(Views, (0), group, (App::PropertyType)(App::Prop_None), "Attached Views");
@@ -127,17 +129,8 @@ void DrawPage::onChanged(const App::Property* prop)
             !isUnsetting()) {
             //would be nice if this message was displayed immediately instead of after the recomputeFeature
             Base::Console().Message("Rebuilding Views for: %s/%s\n",getNameInDocument(),Label.getValue());
-            auto views(Views.getValues());
-            for (auto& v: views) {
-                //check for children of current view 
-                if (v->isDerivedFrom(TechDraw::DrawViewCollection::getClassTypeId()))  {
-                    auto dvc = static_cast<TechDraw::DrawViewCollection*>(v);
-                    for (auto& vv: dvc->Views.getValues()) {
-                        vv->touch();
-                    }
-                }
-                v->recomputeFeature();                   //get all views up to date
-            }
+            updateAllViews();
+            purgeTouched();
         }
     } else if (prop == &Template) {
         if (!isRestoring() &&
@@ -184,6 +177,16 @@ App::DocumentObjectExecReturn *DrawPage::execute(void)
 // this is now irrelevant, b/c DP::execute doesn't do anything. 
 short DrawPage::mustExecute() const
 {
+    short result = 0;
+    if (!isRestoring()) {
+        result  =  (Views.isTouched()  ||
+                    Scale.isTouched()  ||
+                    ProjectionType.isTouched() ||
+                    Template.isTouched());
+        if (result) {
+            return result;
+        }
+    }
     return App::DocumentObject::mustExecute();
 }
 
@@ -324,22 +327,42 @@ void DrawPage::requestPaint(void)
     signalGuiPaint(this);
 }
 
+//this doesn't work right because there is no guaranteed of the restoration order
 void DrawPage::onDocumentRestored()
 {
-    //control drawing updates on restore based on Preference
-    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter()
-        .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/TechDraw/General");
-    bool autoUpdate = hGrp->GetBool("KeepPagesUpToDate", 1l);
-    KeepUpdated.setValue(autoUpdate);
+    if (GlobalUpdateDrawings() &&
+        KeepUpdated.getValue())  {
+        updateAllViews();
+    } else if (!GlobalUpdateDrawings() &&
+                AllowPageOverride()    &&
+                KeepUpdated.getValue()) {
+        updateAllViews();
+    }
 
+    App::DocumentObject::onDocumentRestored();
+}
+
+void DrawPage::redrawCommand()
+{
+//    Base::Console().Message("DP::redrawCommand()\n");
+    forceRedraw(true);
+    updateAllViews();
+    forceRedraw(false);
+}
+//should really be called "updateMostViews".  can still be problems to due execution order.
+void DrawPage::updateAllViews()
+{
+//    Base::Console().Message("DP::updateAllViews()\n");
     std::vector<App::DocumentObject*> featViews = getAllViews();
-    std::vector<App::DocumentObject*>::const_iterator it = featViews.begin();
+    std::vector<App::DocumentObject*>::iterator it = featViews.begin();
     //first, make sure all the Parts have been executed so GeometryObjects exist
     for(; it != featViews.end(); ++it) {
         TechDraw::DrawViewPart *part = dynamic_cast<TechDraw::DrawViewPart *>(*it);
-        if (part != nullptr &&
-            !part->hasGeometry()) {
+        TechDraw::DrawViewCollection *collect = dynamic_cast<TechDraw::DrawViewCollection*>(*it);
+        if (part != nullptr) {
             part->recomputeFeature();
+        } else if (collect != nullptr) {
+            collect->recomputeFeature();
         }
     }
     //second, make sure all the Dimensions have been executed so Measurements have References
@@ -349,7 +372,14 @@ void DrawPage::onDocumentRestored()
             dim->recomputeFeature();
         }
     }
-    App::DocumentObject::onDocumentRestored();
+
+    //third, try to execute all leader lines. may not work if parent DVP isn't ready.
+    for(it = featViews.begin(); it != featViews.end(); ++it) {
+        TechDraw::DrawLeaderLine *line = dynamic_cast<TechDraw::DrawLeaderLine *>(*it);
+        if (line != nullptr) {
+            line->recomputeFeature();
+        }
+    }
 }
 
 std::vector<App::DocumentObject*> DrawPage::getAllViews(void) 
@@ -417,69 +447,46 @@ int DrawPage::getNextBalloonIndex(void)
     return result;
 }
 
-void DrawPage::Restore(Base::XMLReader &reader)
+void DrawPage::handleChangedPropertyType(
+        Base::XMLReader &reader, const char * TypeName, App::Property * prop) 
 {
-    reader.readElement("Properties");
-    int Cnt = reader.getAttributeAsInteger("Count");
-
-    for (int i=0 ;i<Cnt ;i++) {
-        reader.readElement("Property");
-        const char* PropName = reader.getAttribute("name");
-        const char* TypeName = reader.getAttribute("type");
-        App::Property* schemaProp = getPropertyByName(PropName);
-        try {
-            if(schemaProp){
-                if (strcmp(schemaProp->getTypeId().getName(), TypeName) == 0){        //if the property type in obj == type in schema
-                    schemaProp->Restore(reader);                                      //nothing special to do
-                } else  {
-                    if (strcmp(PropName, "Scale") == 0) {
-                        if (schemaProp->isDerivedFrom(App::PropertyFloatConstraint::getClassTypeId())){  //right property type
-                            schemaProp->Restore(reader);                                                  //nothing special to do
-                        } else {                                                                //Scale, but not PropertyFloatConstraint
-                            App::PropertyFloat tmp;
-                            if (strcmp(tmp.getTypeId().getName(),TypeName)) {                   //property in file is Float
-                                tmp.setContainer(this);
-                                tmp.Restore(reader);
-                                double tmpValue = tmp.getValue();
-                                if (tmpValue > 0.0) {
-                                    static_cast<App::PropertyFloatConstraint*>(schemaProp)->setValue(tmpValue);
-                                } else {
-                                    static_cast<App::PropertyFloatConstraint*>(schemaProp)->setValue(1.0);
-                                }
-                            } else {
-                                // has Scale prop that isn't Float! 
-                                Base::Console().Log("DrawPage::Restore - old Document Scale is Not Float!\n");
-                                // no idea
-                            }
-                        }
-                    } else {
-                        Base::Console().Log("DrawPage::Restore - old Document has unknown Property\n");
-                    }
-                }
+    if (prop == &Scale) {
+        App::PropertyFloat tmp;
+        if (strcmp(tmp.getTypeId().getName(),TypeName)==0) {                   //property in file is Float
+            tmp.setContainer(this);
+            tmp.Restore(reader);
+            double tmpValue = tmp.getValue();
+            if (tmpValue > 0.0) {
+                Scale.setValue(tmpValue);
+            } else {
+                Scale.setValue(1.0);
             }
+        } else {
+            // has Scale prop that isn't Float! 
+            Base::Console().Log("DrawPage::Restore - old Document Scale is Not Float!\n");
+            // no idea
         }
-        catch (const Base::XMLParseException&) {
-            throw; // re-throw
-        }
-        catch (const Base::Exception &e) {
-            Base::Console().Error("%s\n", e.what());
-        }
-        catch (const std::exception &e) {
-            Base::Console().Error("%s\n", e.what());
-        }
-        catch (const char* e) {
-            Base::Console().Error("%s\n", e);
-        }
-#ifndef FC_DEBUG
-        catch (...) {
-            Base::Console().Error("PropertyContainer::Restore: Unknown C++ exception thrown\n");
-        }
-#endif
-
-        reader.readEndElement("Property");
     }
-    reader.readEndElement("Properties");
 }
+
+//allow/prevent drawing updates for all Pages
+bool DrawPage::GlobalUpdateDrawings(void)
+{
+    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter()
+          .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/TechDraw/General");
+    bool result = hGrp->GetBool("GlobalUpdateDrawings", true); 
+    return result;
+}
+
+//allow/prevent a single page to update despite GlobalUpdateDrawings setting
+bool DrawPage::AllowPageOverride(void)
+{
+    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter()
+          .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/TechDraw/General");
+    bool result = hGrp->GetBool("AllowPageOverride", true); 
+    return result;
+}
+
 
 // Python Drawing feature ---------------------------------------------------------
 

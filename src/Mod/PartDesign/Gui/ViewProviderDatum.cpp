@@ -1,5 +1,6 @@
 /***************************************************************************
- *   Copyright (c) 2013 Jan Rheinlaender <jrheinlaender@users.sourceforge.net>        *
+ *   Copyright (c) 2013 Jan Rheinlaender                                   *
+ *                                   <jrheinlaender@users.sourceforge.net> *
  *                                                                         *
  *   This file is part of the FreeCAD CAx development system.              *
  *                                                                         *
@@ -283,27 +284,29 @@ bool ViewProviderDatum::setEdit(int ModNum)
 
 bool ViewProviderDatum::doubleClicked(void)
 {
+    auto activeDoc = Gui::Application::Instance->activeDocument();
+    if(!activeDoc)
+        activeDoc = getDocument();
+    auto activeView = activeDoc->getActiveView();
+    if(!activeView) return false;
+
     std::string Msg("Edit ");
     Msg += this->pcObject->Label.getValue();
     Gui::Command::openCommand(Msg.c_str());
 
     Part::Datum* pcDatum = static_cast<Part::Datum*>(getObject());
-    PartDesign::Body* activeBody = getActiveView()->getActiveObject<PartDesign::Body*>(PDBODYKEY);
+    PartDesign::Body* activeBody = activeView->getActiveObject<PartDesign::Body*>(PDBODYKEY);
     auto datumBody = PartDesignGui::getBodyFor(pcDatum, false);
 
     if (datumBody != NULL) {
         if (datumBody != activeBody) {
             Gui::Command::doCommand(Gui::Command::Gui,
-                "Gui.activateView('Gui::View3DInventor', True)\n"
-                "Gui.getDocument('%s').ActiveView.setActiveObject('%s', App.getDocument('%s').getObject('%s'))",
-                datumBody->getDocument()->getName(),
-                PDBODYKEY,
-                datumBody->getDocument()->getName(),
-                datumBody->getNameInDocument());
+                    "Gui.ActiveDocument.ActiveView.setActiveObject('%s',%s)",
+                    PDBODYKEY, Gui::Command::getObjectCmd(datumBody).c_str());
+            activeBody = datumBody;
         }
     }
-    Gui::Command::doCommand(Gui::Command::Gui,"Gui.activeDocument().setEdit('%s',0)",this->pcObject->getNameInDocument());
-    return true;
+    return PartDesignGui::setEdit(pcObject,activeBody);
 }
 
 void ViewProviderDatum::unsetEdit(int ModNum)

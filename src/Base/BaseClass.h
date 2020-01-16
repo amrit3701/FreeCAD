@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Copyright (c) Riegel         <juergen.riegel@web.de>                  *
+ *   Copyright (c) 2011 Jürgen Riegel <juergen.riegel@web.de>              *
  *                                                                         *
  *   This file is part of the FreeCAD CAx development system.              *
  *                                                                         *
@@ -80,21 +80,21 @@ void * _class_::create(void){return 0;}
 
 /// define to implement a subclass of Base::BaseClass
 #define TYPESYSTEM_SOURCE(_class_, _parentclass_) \
-TYPESYSTEM_SOURCE_P(_class_);\
+TYPESYSTEM_SOURCE_P(_class_)\
 void _class_::init(void){\
   initSubclass(_class_::classTypeId, #_class_ , #_parentclass_, &(_class_::create) ); \
 }
 
 /// define to implement a subclass of Base::BaseClass
 #define TYPESYSTEM_SOURCE_TEMPLATE_T(_class_, _parentclass_) \
-TYPESYSTEM_SOURCE_TEMPLATE_P(_class_);\
+TYPESYSTEM_SOURCE_TEMPLATE_P(_class_)\
 template<> void _class_::init(void){\
     initSubclass(_class_::classTypeId, #_class_ , #_parentclass_, &(_class_::create) ); \
 }
 
 /// define to implement a subclass of Base::BaseClass
 #define TYPESYSTEM_SOURCE_ABSTRACT(_class_, _parentclass_) \
-TYPESYSTEM_SOURCE_ABSTRACT_P(_class_);\
+TYPESYSTEM_SOURCE_ABSTRACT_P(_class_)\
 void _class_::init(void){\
   initSubclass(_class_::classTypeId, #_class_ , #_parentclass_, &(_class_::create) ); \
 }
@@ -114,11 +114,11 @@ public:
   virtual PyObject *getPyObject(void);
   virtual void setPyObject(PyObject *);
 
-  static void *create(void){return 0;}
+  static void *create(void){return nullptr;}
 private:
   static Type classTypeId;
 protected:
-  static void initSubclass(Base::Type &toInit,const char* ClassName, const char *ParentName, Type::instantiationMethod method=0);
+  static void initSubclass(Base::Type &toInit,const char* ClassName, const char *ParentName, Type::instantiationMethod method=nullptr);
 
 public:
   /// Construction

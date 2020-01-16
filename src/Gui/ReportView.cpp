@@ -353,6 +353,12 @@ ReportOutput::ReportOutput(QWidget* parent)
     _prefs->Attach(this);
     _prefs->Notify("FontSize");
 
+#ifdef FC_DEBUG
+    messageSize = _prefs->GetInt("LogMessageSize",0);
+#else
+    messageSize = _prefs->GetInt("LogMessageSize",2048);
+#endif
+
     // scroll to bottom at startup to make sure that last appended text is visible
     ensureCursorVisible();
 }
@@ -375,35 +381,37 @@ void ReportOutput::restoreFont()
     setFont(serifFont);
 }
 
-void ReportOutput::Warning(const char * s)
+void ReportOutput::SendLog(const std::string& msg, Base::LogStyle level)
 {
-    // Send the event to itself to allow thread-safety. Qt will delete it when done.
-    CustomReportEvent* ev = new CustomReportEvent(ReportHighlighter::Warning, QString::fromUtf8(s));
-    QApplication::postEvent(this, ev);
-}
-
-void ReportOutput::Message(const char * s)
-{
-    // Send the event to itself to allow thread-safety. Qt will delete it when done.
-    CustomReportEvent* ev = new CustomReportEvent(ReportHighlighter::Message, QString::fromUtf8(s));
-    QApplication::postEvent(this, ev);
-}
-
-void ReportOutput::Error  (const char * s)
-{
-    // Send the event to itself to allow thread-safety. Qt will delete it when done.
-    CustomReportEvent* ev = new CustomReportEvent(ReportHighlighter::Error, QString::fromUtf8(s));
-    QApplication::postEvent(this, ev);
-}
-
-void ReportOutput::Log (const char * s)
-{
-    QString msg = QString::fromUtf8(s);
-    if (msg.length() < 1000){
-        // Send the event to itself to allow thread-safety. Qt will delete it when done.
-        CustomReportEvent* ev = new CustomReportEvent(ReportHighlighter::LogText, msg);
-        QApplication::postEvent(this, ev);
+    ReportHighlighter::Paragraph style = ReportHighlighter::LogText;
+    switch (level) {
+        case Base::LogStyle::Warning:
+            style = ReportHighlighter::Warning;
+            break;
+        case Base::LogStyle::Message:
+            style = ReportHighlighter::Message;
+            break;
+        case Base::LogStyle::Error:
+            style = ReportHighlighter::Error;
+            break;
+        case Base::LogStyle::Log:
+            style = ReportHighlighter::LogText;
+            break;
     }
+
+    QString qMsg = QString::fromUtf8(msg.c_str());
+
+    // This truncates log messages that are too long
+    if (style == ReportHighlighter::LogText) {
+        if (messageSize > 0 && qMsg.size()>messageSize) {
+            qMsg.truncate(messageSize);
+            qMsg += QString::fromLatin1("...\n");
+        }
+    }
+
+    // Send the event to itself to allow thread-safety. Qt will delete it when done.
+    CustomReportEvent* ev = new CustomReportEvent(style, qMsg);
+    QApplication::postEvent(this, ev);
 }
 
 void ReportOutput::customEvent ( QEvent* ev )
@@ -626,6 +634,12 @@ void ReportOutput::OnChange(Base::Subject<const char*> &rCaller, const char * sR
         bool checked = rclGrp.GetBool(sReason, true);
         if (checked != d->redirected_stderr)
             onToggleRedirectPythonStderr();
+    }else if(strcmp(sReason, "LogMessageSize") == 0) {
+#ifdef FC_DEBUG
+        messageSize = rclGrp.GetInt(sReason,0);
+#else
+        messageSize = rclGrp.GetInt(sReason,2048);
+#endif
     }
 }
 

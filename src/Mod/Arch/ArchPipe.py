@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 
 #***************************************************************************
-#*                                                                         *
-#*   Copyright (c) 2016 - Yorik van Havre <yorik@uncreated.net>            *
+#*   Copyright (c) 2016 Yorik van Havre <yorik@uncreated.net>              *
 #*                                                                         *
 #*   This program is free software; you can redistribute it and/or modify  *
 #*   it under the terms of the GNU Lesser General Public License (LGPL)    *
@@ -119,7 +118,7 @@ class _CommandPipe:
         s = FreeCADGui.Selection.getSelection()
         if s:
             for obj in s:
-                if obj.isDerivedFrom("Part::Feature"):
+                if hasattr(obj,'Shape'):
                     if len(obj.Shape.Wires) == 1:
                         FreeCAD.ActiveDocument.openTransaction(translate("Arch","Create Pipe"))
                         FreeCADGui.addModule("Arch")
@@ -257,7 +256,7 @@ class _ArchPipe(ArchComponent.Component):
 
         import Part
         if obj.Base:
-            if not obj.Base.isDerivedFrom("Part::Feature"):
+            if not hasattr(obj.Base,'Shape'):
                 FreeCAD.Console.PrintError(translate("Arch","The base object is not a Part")+"\n")
                 return
             if len(obj.Base.Shape.Wires) != 1:
@@ -277,7 +276,7 @@ class _ArchPipe(ArchComponent.Component):
 
         import Part
         if obj.Profile:
-            if not obj.Profile.isDerivedFrom("Part::Part2DObject"):
+            if not obj.Profile.getLinkedObject().isDerivedFrom("Part::Part2DObject"):
                 FreeCAD.Console.PrintError(translate("Arch","The profile is not a 2D Part")+"\n")
                 return
             if len(obj.Profile.Shape.Wires) != 1:

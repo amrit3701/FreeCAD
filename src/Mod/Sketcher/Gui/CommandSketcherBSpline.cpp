@@ -36,9 +36,9 @@
 #include <Gui/Application.h>
 #include <Gui/Document.h>
 #include <Gui/Selection.h>
-#include <Gui/Command.h>
+#include <Gui/CommandT.h>
 #include <Gui/MainWindow.h>
-#include <Gui/DlgEditFileIncludeProptertyExternal.h>
+#include <Gui/DlgEditFileIncludePropertyExternal.h>
 
 #include <Gui/Action.h>
 #include <Gui/BitmapFactory.h>
@@ -98,7 +98,7 @@ void ShowRestoreInformationLayer(SketcherGui::ViewProviderSketch* vp, char * vis
 }
 
 // Show/Hide B-spline degree
-DEF_STD_CMD_A(CmdSketcherBSplineDegree);
+DEF_STD_CMD_A(CmdSketcherBSplineDegree)
 
 CmdSketcherBSplineDegree::CmdSketcherBSplineDegree()
 :Command("Sketcher_BSplineDegree")
@@ -132,7 +132,7 @@ bool CmdSketcherBSplineDegree::isActive(void)
 }
 
 // Show/Hide B-spline polygon
-DEF_STD_CMD_A(CmdSketcherBSplinePolygon);
+DEF_STD_CMD_A(CmdSketcherBSplinePolygon)
 
 CmdSketcherBSplinePolygon::CmdSketcherBSplinePolygon()
     :Command("Sketcher_BSplinePolygon")
@@ -166,7 +166,7 @@ bool CmdSketcherBSplinePolygon::isActive(void)
 }
 
 // Show/Hide B-spline comb
-DEF_STD_CMD_A(CmdSketcherBSplineComb);
+DEF_STD_CMD_A(CmdSketcherBSplineComb)
 
 CmdSketcherBSplineComb::CmdSketcherBSplineComb()
 :Command("Sketcher_BSplineComb")
@@ -200,7 +200,7 @@ bool CmdSketcherBSplineComb::isActive(void)
 }
 
 //
-DEF_STD_CMD_A(CmdSketcherBSplineKnotMultiplicity);
+DEF_STD_CMD_A(CmdSketcherBSplineKnotMultiplicity)
 
 CmdSketcherBSplineKnotMultiplicity::CmdSketcherBSplineKnotMultiplicity()
 :Command("Sketcher_BSplineKnotMultiplicity")
@@ -234,7 +234,7 @@ bool CmdSketcherBSplineKnotMultiplicity::isActive(void)
 }
 
 // Composite drop down menu for show/hide geometry information layer
-DEF_STD_CMD_ACLU(CmdSketcherCompBSplineShowHideGeometryInformation);
+DEF_STD_CMD_ACLU(CmdSketcherCompBSplineShowHideGeometryInformation)
 
 CmdSketcherCompBSplineShowHideGeometryInformation::CmdSketcherCompBSplineShowHideGeometryInformation()
 : Command("Sketcher_CompBSplineShowHideGeometryInformation")
@@ -267,7 +267,7 @@ void CmdSketcherCompBSplineShowHideGeometryInformation::activated(int iMsg)
 
     cmd->invoke(0);
 
-    // Since the default icon is reset when enabing/disabling the command we have
+    // Since the default icon is reset when enabling/disabling the command we have
     // to explicitly set the icon of the used command.
     Gui::ActionGroup* pcAction = qobject_cast<Gui::ActionGroup*>(_pcAction);
     QList<QAction*> a = pcAction->actions();
@@ -338,7 +338,7 @@ bool CmdSketcherCompBSplineShowHideGeometryInformation::isActive(void)
 }
 
 // Convert to NURB
-DEF_STD_CMD_A(CmdSketcherConvertToNURB);
+DEF_STD_CMD_A(CmdSketcherConvertToNURB)
 
 CmdSketcherConvertToNURB::CmdSketcherConvertToNURB()
 :Command("Sketcher_BSplineConvertToNURB")
@@ -380,21 +380,13 @@ void CmdSketcherConvertToNURB::activated(int iMsg)
         if (SubNames[i].size() > 4 && SubNames[i].substr(0,4) == "Edge") {
 
             int GeoId = std::atoi(SubNames[i].substr(4,4000).c_str()) - 1;
-
-            Gui::Command::doCommand(
-                Doc,"App.ActiveDocument.%s.convertToNURBS(%d) ",
-                                    selection[0].getFeatName(),GeoId);
-
+            Gui::cmdAppObjectArgs(selection[0].getObject(), "convertToNURBS(%d) ", GeoId);
             nurbsized = true;
         }
         else if (SubNames[i].size() > 12 && SubNames[i].substr(0,12) == "ExternalEdge") {
 
             int GeoId = - (std::atoi(SubNames[i].substr(12,4000).c_str()) + 2);
-
-            Gui::Command::doCommand(
-                Doc,"App.ActiveDocument.%s.convertToNURBS(%d) ",
-                                    selection[0].getFeatName(),GeoId);
-
+            Gui::cmdAppObjectArgs(selection[0].getObject(), "convertToNURBS(%d) ", GeoId);
             nurbsized = true;
         }
 
@@ -419,7 +411,7 @@ bool CmdSketcherConvertToNURB::isActive(void)
 }
 
 // Convert to NURB
-DEF_STD_CMD_A(CmdSketcherIncreaseDegree);
+DEF_STD_CMD_A(CmdSketcherIncreaseDegree)
 
 CmdSketcherIncreaseDegree::CmdSketcherIncreaseDegree()
 :Command("Sketcher_BSplineIncreaseDegree")
@@ -465,16 +457,10 @@ void CmdSketcherIncreaseDegree::activated(int iMsg)
             const Part::Geometry * geo = Obj->getGeometry(GeoId);
 
             if (geo->getTypeId() == Part::GeomBSplineCurve::getClassTypeId()) {
-
-                Gui::Command::doCommand(
-                    Doc,"App.ActiveDocument.%s.increaseBSplineDegree(%d) ",
-                                        selection[0].getFeatName(),GeoId);
-
+                Gui::cmdAppObjectArgs(selection[0].getObject(), "increaseBSplineDegree(%d) ", GeoId);
+                
                 // add new control points
-                Gui::Command::doCommand(Gui::Command::Doc,
-                                        "App.ActiveDocument.%s.exposeInternalGeometry(%d)",
-                                        selection[0].getFeatName(),
-                                        GeoId);
+                Gui::cmdAppObjectArgs(selection[0].getObject(), "exposeInternalGeometry(%d)", GeoId);
             }
             else {
                 ignored=true;
@@ -499,7 +485,7 @@ bool CmdSketcherIncreaseDegree::isActive(void)
     return isSketcherBSplineActive( getActiveGuiDocument(), true );
 }
 
-DEF_STD_CMD_A(CmdSketcherIncreaseKnotMultiplicity);
+DEF_STD_CMD_A(CmdSketcherIncreaseKnotMultiplicity)
 
 CmdSketcherIncreaseKnotMultiplicity::CmdSketcherIncreaseKnotMultiplicity()
 :Command("Sketcher_BSplineIncreaseKnotMultiplicity")
@@ -569,9 +555,8 @@ void CmdSketcherIncreaseKnotMultiplicity::activated(int iMsg)
                 notaknot = false;
 
                 try {
-                    Gui::Command::doCommand(
-                        Doc,"App.ActiveDocument.%s.modifyBSplineKnotMultiplicity(%d,%d,%d) ",
-                        selection[0].getFeatName(),(*it)->Second, (*it)->InternalAlignmentIndex + 1, 1);
+                    Gui::cmdAppObjectArgs(selection[0].getObject(), "modifyBSplineKnotMultiplicity(%d,%d,%d) ",
+                        (*it)->Second, (*it)->InternalAlignmentIndex + 1, 1);
 
                     applied = true;
 
@@ -629,10 +614,7 @@ void CmdSketcherIncreaseKnotMultiplicity::activated(int iMsg)
         if(ngfound) {
             try {
                 // add internalalignment for new pole
-                Gui::Command::doCommand(Gui::Command::Doc,
-                                        "App.ActiveDocument.%s.exposeInternalGeometry(%d)",
-                                        selection[0].getFeatName(),
-                                        ngeoid);
+                Gui::cmdAppObjectArgs(selection[0].getObject(), "exposeInternalGeometry(%d)", ngeoid);
             }
             catch (const Base::Exception& e) {
                 Base::Console().Error("%s\n", e.what());
@@ -660,7 +642,7 @@ bool CmdSketcherIncreaseKnotMultiplicity::isActive(void)
     return isSketcherBSplineActive( getActiveGuiDocument(), true );
 }
 
-DEF_STD_CMD_A(CmdSketcherDecreaseKnotMultiplicity);
+DEF_STD_CMD_A(CmdSketcherDecreaseKnotMultiplicity)
 
 CmdSketcherDecreaseKnotMultiplicity::CmdSketcherDecreaseKnotMultiplicity()
 :Command("Sketcher_BSplineDecreaseKnotMultiplicity")
@@ -730,10 +712,9 @@ void CmdSketcherDecreaseKnotMultiplicity::activated(int iMsg)
                 notaknot = false;
 
                 try {
-                    Gui::Command::doCommand(
-                        Doc,"App.ActiveDocument.%s.modifyBSplineKnotMultiplicity(%d,%d,%d) ",
-                                            selection[0].getFeatName(),(*it)->Second, (*it)->InternalAlignmentIndex + 1, -1);
-
+                    Gui::cmdAppObjectArgs(selection[0].getObject(), "modifyBSplineKnotMultiplicity(%d,%d,%d) ",
+                                          (*it)->Second, (*it)->InternalAlignmentIndex + 1, -1);
+                    
                     applied = true;
 
                     // Warning: GeoId list might have changed as the consequence of deleting pole circles and
@@ -777,16 +758,12 @@ void CmdSketcherDecreaseKnotMultiplicity::activated(int iMsg)
         if(ngfound) {
             try {
                 // add internalalignment for new pole
-                Gui::Command::doCommand(Gui::Command::Doc,
-                                        "App.ActiveDocument.%s.exposeInternalGeometry(%d)",
-                                        selection[0].getFeatName(),
-                                        ngeoid);
+                Gui::cmdAppObjectArgs(selection[0].getObject(), "exposeInternalGeometry(%d)", ngeoid);
             }
             catch (const Base::Exception& e) {
                 Base::Console().Error("%s\n", e.what());
                 getSelection().clearSelection();
             }
-
         }
     }
 
@@ -809,7 +786,7 @@ bool CmdSketcherDecreaseKnotMultiplicity::isActive(void)
 
 
 // Composite drop down for knot increase/decrease
-DEF_STD_CMD_ACLU(CmdSketcherCompModifyKnotMultiplicity);
+DEF_STD_CMD_ACLU(CmdSketcherCompModifyKnotMultiplicity)
 
 CmdSketcherCompModifyKnotMultiplicity::CmdSketcherCompModifyKnotMultiplicity()
 : Command("Sketcher_CompModifyKnotMultiplicity")
@@ -839,7 +816,7 @@ void CmdSketcherCompModifyKnotMultiplicity::activated(int iMsg)
 
     cmd->invoke(0);
 
-    // Since the default icon is reset when enabing/disabling the command we have
+    // Since the default icon is reset when enabling/disabling the command we have
     // to explicitly set the icon of the used command.
     Gui::ActionGroup* pcAction = qobject_cast<Gui::ActionGroup*>(_pcAction);
     QList<QAction*> a = pcAction->actions();

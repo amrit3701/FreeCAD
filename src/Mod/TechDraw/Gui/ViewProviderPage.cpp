@@ -58,6 +58,7 @@
 #include <Mod/TechDraw/App/DrawLeaderLine.h>
 #include <Mod/TechDraw/App/DrawRichAnno.h>
 #include <Mod/TechDraw/App/DrawHatch.h>
+#include <Mod/TechDraw/App/DrawWeldSymbol.h>
 #include <Mod/TechDraw/App/DrawUtil.h>
 
 #include "MDIViewPage.h"
@@ -158,25 +159,35 @@ void ViewProviderPage::removeMDIView(void)
 
 void ViewProviderPage::updateData(const App::Property* prop)
 {
-    if (prop == &(getDrawPage()->KeepUpdated)) {
+    auto page = getDrawPage();
+    if(!page) {
+        Gui::ViewProviderDocumentObject::updateData(prop);
+        return;
+    }
+    if (prop == &(page->KeepUpdated)) {
        if (getDrawPage()->KeepUpdated.getValue()) {
            sPixmap = "TechDraw_Tree_Page";
        } else {
            sPixmap = "TechDraw_Tree_Page_Unsync";
        }
+       signalChangeIcon();
     //if the template is changed, rebuild the visual
-    } else if (prop == &(getDrawPage()->Template)) {
+    } else if (prop == &(page->Template)) {
        if(m_mdiView && 
-          !getDrawPage()->isUnsetting()) {
+          !page->isUnsetting()) {
             m_mdiView->matchSceneRectToTemplate();
             m_mdiView->updateTemplate();
         }
-    } else if (prop == &(getDrawPage()->Label)) {
+    } else if (prop == &(page->Label)) {
        if(m_mdiView && 
-          !getDrawPage()->isUnsetting()) {
-           m_mdiView->setTabText(getDrawPage()->Label.getValue());
+          !page->isUnsetting()) {
+           m_mdiView->setTabText(page->Label.getValue());
        }
+    } else if (prop == &page->Views) {
+        if(m_mdiView && !page->isUnsetting()) 
+            m_mdiView->fixOrphans();
     }
+
     Gui::ViewProviderDocumentObject::updateData(prop);
 }
 
@@ -218,8 +229,7 @@ bool ViewProviderPage::setEdit(int ModNum)
 
 bool ViewProviderPage::doubleClicked(void)
 {
-    Visibility.setValue(true);
-    showMDIViewPage();
+    show();
     Gui::getMainWindow()->setActiveWindow(m_mdiView);
     return true;
 }
@@ -237,7 +247,6 @@ bool ViewProviderPage::showMDIViewPage()
         Gui::Document* doc = Gui::Application::Instance->getDocument
             (pcObject->getDocument());
         m_mdiView = new MDIViewPage(this, doc, Gui::getMainWindow());
-//        QString tabTitle = QString::fromUtf8(getDrawPage()->getNameInDocument());
         QString tabTitle = QString::fromUtf8(getDrawPage()->Label.getValue());
 
         m_mdiView->setDocumentObject(getDrawPage()->getNameInDocument());
@@ -245,14 +254,15 @@ bool ViewProviderPage::showMDIViewPage()
 
         m_mdiView->setWindowTitle(tabTitle + QString::fromLatin1("[*]"));
         m_mdiView->setWindowIcon(Gui::BitmapFactory().pixmap("TechDraw_Tree_Page"));
-        m_mdiView->updateDrawing();
         Gui::getMainWindow()->addWindow(m_mdiView);
-        m_mdiView->viewAll();  //this is empty function
+        m_mdiView->viewAll();
         m_mdiView->showMaximized();
+        m_mdiView->addChildrenToPage();
+        m_mdiView->fixOrphans(true);
     } else {
-        m_mdiView->updateDrawing();
-        m_mdiView->redrawAllViews();
         m_mdiView->updateTemplate(true);
+        m_mdiView->redrawAllViews();
+        m_mdiView->fixOrphans(true);
     }
     return true;
 }
@@ -272,10 +282,11 @@ std::vector<App::DocumentObject*> ViewProviderPage::claimChildren(void) const
     // for Page, valid children are any View except: DrawProjGroupItem
     //                                               DrawViewDimension
     //                                               DrawViewBalloon
-    //                                               DrawLeader
-    //                                               DrawRichAnno (if not a child of View)
+    //                                               DrawLeaderLine
+    //                                               DrawRichAnno 
     //                                               any FeatuerView in a DrawViewClip
     //                                               DrawHatch
+    //                                               DrawWeldSymbol
 
     const std::vector<App::DocumentObject *> &views = getDrawPage()->Views.getValues();
 
@@ -301,6 +312,7 @@ std::vector<App::DocumentObject*> ViewProviderPage::claimChildren(void) const
              docObj->isDerivedFrom(TechDraw::DrawViewBalloon::getClassTypeId())      ||
              docObj->isDerivedFrom(TechDraw::DrawRichAnno::getClassTypeId())         ||
              docObj->isDerivedFrom(TechDraw::DrawLeaderLine::getClassTypeId())       ||
+             docObj->isDerivedFrom(TechDraw::DrawWeldSymbol::getClassTypeId())       ||
              (featView && featView->isInClip()) )
               continue;
           else
@@ -321,7 +333,7 @@ void ViewProviderPage::unsetEdit(int ModNum)
 }
 
 
-MDIViewPage* ViewProviderPage::getMDIViewPage()
+MDIViewPage* ViewProviderPage::getMDIViewPage() const
 {
     if (m_mdiView.isNull()) {
         Base::Console().Log("INFO - ViewProviderPage::getMDIViewPage has no m_mdiView!\n");
@@ -415,7 +427,7 @@ void ViewProviderPage::onGuiRepaint(const TechDraw::DrawPage* dp)
     if (dp == getDrawPage()) {
         if(!m_mdiView.isNull() &&
            !getDrawPage()->isUnsetting()) {
-            m_mdiView->updateDrawing();
+            m_mdiView->fixOrphans();
         }
     }
 }
@@ -428,4 +440,10 @@ TechDraw::DrawPage* ViewProviderPage::getDrawPage() const
         return nullptr;
     }
     return dynamic_cast<TechDraw::DrawPage*>(pcObject);
+}
+
+Gui::MDIView *ViewProviderPage::getMDIView() const
+{
+    const_cast<ViewProviderPage*>(this)->showMDIViewPage();
+    return m_mdiView.data();
 }

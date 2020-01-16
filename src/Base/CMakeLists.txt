@@ -78,6 +78,7 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
     list(APPEND FreeCADBase_LIBS -lutil -ldl)
 endif()
 
+generate_from_xml(TypePy)
 generate_from_xml(BaseClassPy)
 generate_from_xml(BoundBoxPy)
 generate_from_xml(CoordinateSystemPy)
@@ -89,6 +90,7 @@ generate_from_xml(PlacementPy)
 generate_from_xml(AxisPy)
 generate_from_xml(UnitPy)
 generate_from_xml(QuantityPy)
+generate_from_any(Parameter.xsd Parameter.inl xmlSchemeString)
 
 if(SWIG_FOUND)
     # Create the file swigpyrun.hh and then compare with the file swigpyrun.h.
@@ -172,6 +174,7 @@ SET(FreeCADBase_XML_SRCS
     RotationPy.xml
     VectorPy.xml
     QuantityPy.xml
+    TypePy.xml
     UnitPy.xml
 )
 SOURCE_GROUP("XML" FILES ${FreeCADBase_XML_SRCS})
@@ -238,6 +241,7 @@ SET(FreeCADBase_CPP_SRCS
     CoordinateSystem.cpp
     CoordinateSystemPyImp.cpp
     Debugger.cpp
+    DualQuaternion.cpp
     Exception.cpp
     ExceptionFactory.cpp
     Factory.cpp
@@ -253,6 +257,7 @@ SET(FreeCADBase_CPP_SRCS
     Matrix.cpp
     MatrixPyImp.cpp
     MemDebug.cpp
+    Parameter.xsd
     Parameter.cpp
     ParameterPy.cpp
     Persistence.cpp
@@ -273,6 +278,7 @@ SET(FreeCADBase_CPP_SRCS
     Tools2D.cpp
     Translate.cpp
     Type.cpp
+    TypePyImp.cpp
     Uuid.cpp
     Vector3D.cpp
     VectorPyImp.cpp
@@ -303,8 +309,11 @@ SET(FreeCADBase_HPP_SRCS
     BoundBox.h
     Builder3D.h
     Console.h
+    Converter.h
     CoordinateSystem.h
     Debugger.h
+    DualNumber.h
+    DualQuaternion.h
     Exception.h
     ExceptionFactory.h
     Factory.h
@@ -398,7 +407,7 @@ SET_BIN_DIR(FreeCADBase FreeCADBase)
 
 if(WIN32)
     INSTALL(TARGETS FreeCADBase
-        RUNTIME DESTINATION bin
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     )
 else(WIN32)

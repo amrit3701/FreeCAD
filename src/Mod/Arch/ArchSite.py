@@ -1,9 +1,7 @@
 # -*- coding: utf8 -*-
 
 #***************************************************************************
-#*                                                                         *
-#*   Copyright (c) 2011                                                    *
-#*   Yorik van Havre <yorik@uncreated.net>                                 *
+#*   Copyright (c) 2011 Yorik van Havre <yorik@uncreated.net>              *
 #*                                                                         *
 #*   This program is free software; you can redistribute it and/or modify  *
 #*   it under the terms of the GNU Lesser General Public License (LGPL)    *
@@ -521,7 +519,7 @@ Site creation aborted.") + "\n"
 
 
 
-class _Site:
+class _Site(ArchIFC.IfcProduct):
 
     "The Site object"
 
@@ -533,8 +531,7 @@ class _Site:
 
     def setProperties(self,obj):
 
-        import ArchIFC
-        ArchIFC.setProperties(obj)
+        ArchIFC.IfcProduct.setProperties(self, obj)
 
         pl = obj.PropertiesList
         if not "Terrain" in pl:
@@ -597,20 +594,20 @@ class _Site:
 
     def execute(self,obj):
 
-        if not obj.isDerivedFrom("Part::Feature"): # old-style Site
+        if not hasattr(obj,'Shape'): # old-style Site
             return
 
         pl = obj.Placement
         shape = None
         if obj.Terrain:
-            if obj.Terrain.isDerivedFrom("Part::Feature"):
+            if hasattr(obj.Terrain,'Shape'):
                 if obj.Terrain.Shape:
                     if not obj.Terrain.Shape.isNull():
                         shape = obj.Terrain.Shape.copy()
         if shape:
             shells = []
             for sub in obj.Subtractions:
-                if sub.isDerivedFrom("Part::Feature"):
+                if hasattr(sub,'Shape'):
                     if sub.Shape:
                         if sub.Shape.Solids:
                             for sol in sub.Shape.Solids:
@@ -618,7 +615,7 @@ class _Site:
                                 shells.append(sol.Shells[0].common(shape.extrude(obj.ExtrusionVector)))
                                 shape = rest
             for sub in obj.Additions:
-                if sub.isDerivedFrom("Part::Feature"):
+                if hasattr(sub,'Shape'):
                     if sub.Shape:
                         if sub.Shape.Solids:
                             for sol in sub.Shape.Solids:
@@ -638,7 +635,7 @@ class _Site:
 
     def onChanged(self,obj,prop):
 
-        ArchIFC.onChanged(obj, prop)
+        ArchIFC.IfcProduct.onChanged(self, obj, prop)
         if prop == "Terrain":
             if obj.Terrain:
                 if FreeCAD.GuiUp:

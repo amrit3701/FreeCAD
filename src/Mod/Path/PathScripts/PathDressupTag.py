@@ -33,8 +33,8 @@ import math
 from PathScripts.PathDressupTagPreferences import HoldingTagPreferences
 from PySide import QtCore
 
-PathLog.setLevel(PathLog.Level.DEBUG, PathLog.thisModule())
-PathLog.trackModule()
+PathLog.setLevel(PathLog.Level.INFO, PathLog.thisModule())
+#PathLog.trackModule()
 
 
 # Qt translation handling
@@ -220,7 +220,7 @@ class ObjectDressup:
         PathLog.track()
 
     def toolRadius(self):
-        return PathDressup.toolController(self.obj.Base).Tool.Diameter / 2.0
+        return float(PathDressup.toolController(self.obj.Base).Tool.Diameter) / 2.0
 
     def addTagsToDocuemnt(self):
         for i, solid in enumerate(self.solids):

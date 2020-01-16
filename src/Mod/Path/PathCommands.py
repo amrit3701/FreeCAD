@@ -35,6 +35,7 @@ from PathScripts.PathUtils import findParentJob
 if FreeCAD.GuiUp:
     import FreeCADGui
     from PySide import QtCore
+    from PySide import QtGui
 else:
     def translate(ctxt, txt):
         return txt
@@ -68,7 +69,8 @@ class _CommandSelectLoop:
             self.obj = sel.Object
             self.sub = sel.SubElementNames
             if sel.SubObjects:
-                self.active = self.formsPartOfALoop(sel.Object, sel.SubObjects[0], sel.SubElementNames)
+                #self.active = self.formsPartOfALoop(sel.Object, sel.SubObjects[0], sel.SubElementNames)
+                self.active = True
             else:
                 self.active = False
             return self.active
@@ -102,17 +104,24 @@ class _CommandSelectLoop:
                 for i in loopwire.Edges:
                     if e.hashCode() == i.hashCode():
                         FreeCADGui.Selection.addSelection(obj, "Edge" + str(elist.index(e) + 1))
+        elif FreeCAD.GuiUp:
+            QtGui.QMessageBox.information(None,
+                    QtCore.QT_TRANSLATE_NOOP('Path_SelectLoop', 'Feature Completion'),
+                    QtCore.QT_TRANSLATE_NOOP('Path_SelectLoop', 'Closed loop detection failed.'))
 
     def formsPartOfALoop(self, obj, sub, names):
-        if names[0][0:4] != 'Edge':
-            if names[0][0:4] == 'Face' and horizontalFaceLoop(obj, sub, names):
+        try: 
+            if names[0][0:4] != 'Edge':
+                if names[0][0:4] == 'Face' and horizontalFaceLoop(obj, sub, names):
+                    return True
+                return False
+            if len(names) == 1 and horizontalEdgeLoop(obj, sub):
                 return True
-            return False
-        if len(names) == 1 and horizontalEdgeLoop(obj, sub):
+            if len(names) == 1 or names[1][0:4] != 'Edge':
+                return False
             return True
-        if len(names) == 1 or names[1][0:4] != 'Edge':
+        except Exception:
             return False
-        return True
 
 
 if FreeCAD.GuiUp:
@@ -133,13 +142,13 @@ class _ToggleOperation:
             return False
         try:
             obj = FreeCADGui.Selection.getSelectionEx()[0].Object
-            return isinstance(obj.Proxy, PathScripts.PathOp.ObjectOp)
+            return isinstance(PathScripts.PathDressup.baseOp(obj).Proxy, PathScripts.PathOp.ObjectOp)
         except(IndexError, AttributeError):
             return False
 
     def Activated(self):
         obj = FreeCADGui.Selection.getSelectionEx()[0].Object
-        obj.Active = not(obj.Active)
+        PathScripts.PathDressup.baseOp(obj).Active = not(PathScripts.PathDressup.baseOp(obj).Active)
         FreeCAD.ActiveDocument.recompute()
 
 

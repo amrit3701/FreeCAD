@@ -501,7 +501,7 @@ class ObjectDressup:
         1. Start from the original startpoint of the plunge
         2. Calculate the distance on the path which is needed to implement the ramp
            and travel that distance while maintaining start depth
-        3. Start ramping while travelling the original path backwards until reaching the
+        3. Start ramping while traveling the original path backwards until reaching the
            original plunge end point
         4. Continue with the original path
         """
@@ -541,7 +541,7 @@ class ObjectDressup:
                     curPoint = newPoint
 
                 else:
-                    # we are travelling on start depth
+                    # we are traveling on start depth
                     newPoint = FreeCAD.Base.Vector(redge.valueAt(redge.LastParameter).x, redge.valueAt(redge.LastParameter).y, p0.z)
                     outedges.append(self.createRampEdge(redge, curPoint, newPoint))
                     curPoint = newPoint
@@ -654,10 +654,12 @@ class ViewProviderDressup:
         '''this makes sure that the base operation is added back to the project and visible'''
         # pylint: disable=unused-argument
         PathLog.debug("Deleting Dressup")
-        FreeCADGui.ActiveDocument.getObject(arg1.Object.Base.Name).Visibility = True
-        job = PathUtils.findParentJob(self.obj)
-        job.Proxy.addOperation(arg1.Object.Base, arg1.Object)
-        arg1.Object.Base = None
+        if arg1.Object and arg1.Object.Base:
+            FreeCADGui.ActiveDocument.getObject(arg1.Object.Base.Name).Visibility = True
+            job = PathUtils.findParentJob(self.obj)
+            if job:
+                job.Proxy.addOperation(arg1.Object.Base, arg1.Object)
+            arg1.Object.Base = None
         return True
 
     def __getstate__(self):

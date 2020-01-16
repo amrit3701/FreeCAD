@@ -1,5 +1,6 @@
 /***************************************************************************
- *   Copyright (c) 2012 Jan Rheinländer <jrheinlaender@users.sourceforge.net>        *
+ *   Copyright (c) 2013 Jan Rheinländer                                    *
+ *                                   <jrheinlaender@users.sourceforge.net> *
  *                                                                         *
  *   This file is part of the FreeCAD CAx development system.              *
  *                                                                         *
@@ -340,10 +341,10 @@ void TaskDlgBooleanParameters::clicked(int)
 
 bool TaskDlgBooleanParameters::accept()
 {
-    std::string name = BooleanView->getObject()->getNameInDocument();
-    Gui::Document* doc = Gui::Application::Instance->activeDocument();
-    if (doc != NULL)
-        doc->setShow(name.c_str());
+    auto obj = BooleanView->getObject();
+    if(!obj || !obj->getNameInDocument())
+        return false;
+    BooleanView->Visibility.setValue(true);
 
     try {
         std::vector<std::string> bodies = parameter->getBodies();
@@ -353,9 +354,9 @@ bool TaskDlgBooleanParameters::accept()
             return false;
         }
         std::stringstream str;
-        str << "App.ActiveDocument." << name.c_str() << ".setObjects( [";
+        str << Gui::Command::getObjectCmd(obj) << ".setObjects( [";
         for (std::vector<std::string>::const_iterator it = bodies.begin(); it != bodies.end(); ++it)
-            str << "App.ActiveDocument." << *it << ",";
+            str << "App.getDocument('" << obj->getDocument()->getName() << "').getObject('" << *it << "'),";
         str << "])";
         Gui::Command::runCommand(Gui::Command::Doc,str.str().c_str());
     }
@@ -364,7 +365,7 @@ bool TaskDlgBooleanParameters::accept()
         return false;
     }
 
-    Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.%s.Type = %u",name.c_str(),parameter->getType());
+    FCMD_OBJ_CMD(obj,"Type = " << parameter->getType());
     Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.recompute()");
     Gui::Command::doCommand(Gui::Command::Gui,"Gui.activeDocument().resetEdit()");
     Gui::Command::commitCommand();

@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Copyright (c) Jürgen Riegel          (juergen.riegel@web.de) 2010     *
+ *   Copyright (c) 2010 Jürgen Riegel <juergen.riegel@web.de>              *
  *                                                                         *
  *   This file is part of the FreeCAD CAx development system.              *
  *                                                                         *
@@ -404,6 +404,31 @@ PyObject* SketchObjectPy::renameConstraint(PyObject *args)
         delete copy;
     }
     Py_Return;
+}
+
+PyObject* SketchObjectPy::getIndexByName(PyObject *args)
+{
+    char* utf8Name;
+    if (!PyArg_ParseTuple(args, "et", "utf-8", &utf8Name))
+        return 0;
+
+    std::string Name = utf8Name;
+    PyMem_Free(utf8Name);
+
+    if (Name.empty()) {
+        PyErr_SetString(PyExc_ValueError, "Passed string is empty");
+        return 0;
+    }
+
+    const std::vector< Sketcher::Constraint * > &vals = getSketchObjectPtr()->Constraints.getValues();
+    for (std::size_t i = 0; i < vals.size(); ++i) {
+        if (Name == vals[i]->Name) {
+            return Py_BuildValue("i", i);
+        }
+    }
+
+    PyErr_SetString(PyExc_LookupError, "No such constraint found");
+    return 0;
 }
 
 PyObject* SketchObjectPy::carbonCopy(PyObject *args)

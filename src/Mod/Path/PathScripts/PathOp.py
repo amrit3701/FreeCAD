@@ -38,13 +38,8 @@ __author__ = "sliptonic (Brad Collette)"
 __url__ = "http://www.freecadweb.org"
 __doc__ = "Base class and properties implementation for all Path operations."
 
-LOGLEVEL = False
-
-if LOGLEVEL:
-    PathLog.setLevel(PathLog.Level.DEBUG, PathLog.thisModule())
-    PathLog.trackModule()
-else:
-    PathLog.setLevel(PathLog.Level.INFO, PathLog.thisModule())
+PathLog.setLevel(PathLog.Level.INFO, PathLog.thisModule())
+#PathLog.trackModule()
 
 
 # Qt translation handling
@@ -63,8 +58,9 @@ FeatureBaseEdges    = 0x0200     # Base
 FeatureBaseFaces    = 0x0400     # Base
 FeatureBasePanels   = 0x0800     # Base
 FeatureLocations    = 0x1000     # Locations
+FeatureCoolant      = 0x2000     # Coolant
 
-FeatureBaseGeometry = FeatureBaseVertexes | FeatureBaseFaces | FeatureBaseEdges | FeatureBasePanels
+FeatureBaseGeometry = FeatureBaseVertexes | FeatureBaseFaces | FeatureBaseEdges | FeatureBasePanels | FeatureCoolant
 
 
 class ObjectOp(object):
@@ -89,6 +85,7 @@ class ObjectOp(object):
         FeatureBaseFaces     ... Base geometry support for faces
         FeatureBasePanels    ... Base geometry support for Arch.Panels
         FeatureLocations     ... Base location support
+        FeatureCoolant       ... Support for operation coolant 
 
     The base class handles all base API and forwards calls to subclasses with
     an op prefix. For instance, an op is not expected to overwrite onChanged(),
@@ -135,6 +132,9 @@ class ObjectOp(object):
             obj.addProperty("App::PropertyLink", "ToolController", "Path", QtCore.QT_TRANSLATE_NOOP("PathOp", "The tool controller that will be used to calculate the path"))
             self.addOpValues(obj, ['tooldia'])
 
+        if FeatureCoolant & features:
+            obj.addProperty("App::PropertyString", "CoolantMode", "Path", QtCore.QT_TRANSLATE_NOOP("PathOp", "Coolant mode for this operation"))
+ 
         if FeatureDepths & features:
             obj.addProperty("App::PropertyDistance", "StartDepth", "Depth", QtCore.QT_TRANSLATE_NOOP("PathOp", "Starting Depth of Tool- first cut depth in Z"))
             obj.addProperty("App::PropertyDistance", "FinalDepth", "Depth", QtCore.QT_TRANSLATE_NOOP("PathOp", "Final Depth of Tool- lowest value in Z"))
@@ -208,6 +208,9 @@ class ObjectOp(object):
         if FeatureTool & features and not hasattr(obj, 'OpToolDiameter'):
             self.addOpValues(obj, ['tooldia'])
 
+        if FeatureCoolant & features and not hasattr(obj, 'CoolantMode'):
+            obj.addProperty("App::PropertyString", "CoolantMode", "Path", QtCore.QT_TRANSLATE_NOOP("PathOp", "Coolant option for this operation"))
+
         if FeatureDepths & features and not hasattr(obj, 'OpStartDepth'):
             self.addOpValues(obj, ['start', 'final'])
             if FeatureNoFinalDepth & features:
@@ -238,7 +241,7 @@ class ObjectOp(object):
         The default implementation returns "FeatureTool | FeatureDeptsh | FeatureHeights | FeatureStartPoint"
         Should be overwritten by subclasses.'''
         # pylint: disable=unused-argument
-        return FeatureTool | FeatureDepths | FeatureHeights | FeatureStartPoint | FeatureBaseGeometry | FeatureFinishDepth
+        return FeatureTool | FeatureDepths | FeatureHeights | FeatureStartPoint | FeatureBaseGeometry | FeatureFinishDepth | FeatureCoolant
 
     def initOperation(self, obj):
         '''initOperation(obj) ... implement to create additional properties.
@@ -316,6 +319,9 @@ class ObjectOp(object):
                 return None
             obj.OpToolDiameter = obj.ToolController.Tool.Diameter
 
+        if FeatureCoolant & features:
+            obj.CoolantMode = job.SetupSheet.CoolantMode
+
         if FeatureDepths & features:
             if self.applyExpression(obj, 'StartDepth', job.SetupSheet.StartDepthExpression):
                 obj.OpStartDepth = 1.0
@@ -363,7 +369,7 @@ class ObjectOp(object):
 
     def getJob(self, obj):
         '''getJob(obj) ... return the job this operation is part of.'''
-        if not hasattr(self, 'job'):
+        if not hasattr(self, 'job') or self.job is None:
             if not self._setBaseAndStock(obj):
                 return None
         return self.job
@@ -472,6 +478,10 @@ class ObjectOp(object):
         if not self._setBaseAndStock(obj):
             return
 
+        if FeatureCoolant & self.opFeatures(obj):
+            if not hasattr(obj, 'CoolantMode'):
+                FreeCAD.Console.PrintError("No coolant property found. Please recreate operation.")
+
         if FeatureTool & self.opFeatures(obj):
             tc = obj.ToolController
             if tc is None or tc.ToolNumber == 0:
@@ -483,10 +493,10 @@ class ObjectOp(object):
                 self.vertRapid = tc.VertRapid.Value
                 self.horizRapid = tc.HorizRapid.Value
                 tool = tc.Proxy.getTool(tc)
-                if not tool or tool.Diameter == 0:
+                if not tool or float(tool.Diameter) == 0:
                     FreeCAD.Console.PrintError("No Tool found or diameter is zero. We need a tool to build a Path.")
                     return
-                self.radius = tool.Diameter/2
+                self.radius = float(tool.Diameter) /2 
                 self.tool = tool
                 obj.OpToolDiameter = tool.Diameter
 

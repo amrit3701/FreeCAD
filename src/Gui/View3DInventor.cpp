@@ -84,6 +84,7 @@
 #include <Inventor/nodes/SoOrthographicCamera.h>
 
 #include "View3DInventorExamples.h"
+#include "ViewProviderDocumentObject.h"
 #include "SoFCSelectionAction.h"
 #include "View3DPy.h"
 #include "SoFCDB.h"
@@ -105,7 +106,7 @@ void GLOverlayWidget::paintEvent(QPaintEvent*)
 
 /* TRANSLATOR Gui::View3DInventor */
 
-TYPESYSTEM_SOURCE_ABSTRACT(Gui::View3DInventor,Gui::MDIView);
+TYPESYSTEM_SOURCE_ABSTRACT(Gui::View3DInventor,Gui::MDIView)
 
 View3DInventor::View3DInventor(Gui::Document* pcDocument, QWidget* parent,
                                const QtGLWidget* sharewidget, Qt::WindowFlags wflags)
@@ -171,6 +172,7 @@ View3DInventor::View3DInventor(Gui::Document* pcDocument, QWidget* parent,
     OnChange(*hGrp,"ShowNaviCube");
     OnChange(*hGrp,"CornerNaviCube");
     OnChange(*hGrp,"UseVBO");
+    OnChange(*hGrp,"RenderCache");
     OnChange(*hGrp,"Orthographic");
     OnChange(*hGrp,"HeadlightColor");
     OnChange(*hGrp,"HeadlightDirection");
@@ -194,6 +196,11 @@ View3DInventor::View3DInventor(Gui::Document* pcDocument, QWidget* parent,
 
 View3DInventor::~View3DInventor()
 {
+    if(_pcDocument) {
+        SoCamera * Cam = _viewer->getSoRenderManager()->getCamera();
+        if (Cam) 
+            _pcDocument->saveCameraSettings(SoFCDB::writeNodesToString(Cam).c_str());
+    }
     hGrp->Detach(this);
 
     //If we destroy this viewer by calling 'delete' directly the focus proxy widget which is defined
@@ -376,6 +383,9 @@ void View3DInventor::OnChange(ParameterGrp::SubjectType &rCaller,ParameterGrp::M
     else if (strcmp(Reason,"UseVBO") == 0) {
         _viewer->setEnabledVBO(rGrp.GetBool("UseVBO",false));
     }
+    else if (strcmp(Reason,"RenderCache") == 0) {
+        _viewer->setRenderCache(rGrp.GetInt("RenderCache",0));
+    }
     else if (strcmp(Reason,"Orthographic") == 0) {
         // check whether a perspective or orthogrphic camera should be set
         if (rGrp.GetBool("Orthographic", true))
@@ -505,6 +515,11 @@ void View3DInventor::print(QPrinter* printer)
     _viewer->imageFromFramebuffer(rect.width(), rect.height(), 8, QColor(255,255,255), img);
     p.drawImage(0,0,img);
     p.end();
+}
+
+bool View3DInventor::containsViewProvider(const ViewProvider* vp) const
+{
+    return _viewer->containsViewProvider(vp);
 }
 
 // **********************************************************************************

@@ -1,5 +1,4 @@
 # ***************************************************************************
-# *                                                                         *
 # *   Copyright (c) 2009 Yorik van Havre <yorik@uncreated.net>              *
 # *                                                                         *
 # *   This program is free software; you can redistribute it and/or modify  *
@@ -22,7 +21,7 @@
 
 __title__ = "FreeCAD Draft Workbench - Init file"
 __author__ = "Yorik van Havre <yorik@uncreated.net>"
-__url__ = ["http://www.freecadweb.org"]
+__url__ = "https://www.freecadweb.org"
 
 
 class DraftWorkbench(Workbench):
@@ -64,20 +63,18 @@ class DraftWorkbench(Workbench):
 
         # Import Draft tools, icons
         try:
-            import os, Draft_rc, DraftTools, DraftGui
-            import DraftEdit
+            import os, Draft_rc, DraftTools, DraftGui, DraftFillet
             from DraftTools import translate
+            from draftguitools import gui_circulararray
+            from draftguitools import gui_polararray
             FreeCADGui.addLanguagePath(":/translations")
             FreeCADGui.addIconPath(":/icons")
         except Exception as inst:
             print(inst)
             FreeCAD.Console.PrintError("Error: Initializing one or more of the Draft modules failed, Draft will not work as expected.\n")
 
-        # setup commands
-        FreeCADGui.addCommand('Draft_Edit', DraftEdit.Edit())
-
         # setup menus
-        self.cmdList = ["Draft_Line", "Draft_Wire", "Draft_Circle",
+        self.cmdList = ["Draft_Line", "Draft_Wire", "Draft_Fillet", "Draft_Circle",
                         "Draft_ArcTools", "Draft_Ellipse",
                         "Draft_Polygon", "Draft_Rectangle", "Draft_Text",
                         "Draft_Dimension", "Draft_BSpline", "Draft_Point",
@@ -86,11 +83,12 @@ class DraftWorkbench(Workbench):
         self.modList = ["Draft_Move", "Draft_Rotate", "Draft_Offset",
                         "Draft_Trimex", "Draft_Join", "Draft_Split",
                         "Draft_Upgrade", "Draft_Downgrade", "Draft_Scale",
-                        "Draft_Edit", "Draft_Edit_Improved",
+                        "Draft_Edit", "Draft_SubelementHighlight",
                         "Draft_WireToBSpline", "Draft_AddPoint",
                         "Draft_DelPoint", "Draft_Shape2DView",
-                        "Draft_Draft2Sketch", "Draft_Array",
-                        "Draft_PathArray", "Draft_PointArray", "Draft_Clone",
+                        "Draft_Draft2Sketch", "Draft_Array", "Draft_LinkArray",
+                        "Draft_PolarArray", "Draft_CircularArray",
+                        "Draft_PathArray", "Draft_PathLinkArray", "Draft_PointArray", "Draft_Clone",
                         "Draft_Drawing", "Draft_Mirror", "Draft_Stretch"]
         self.treecmdList = ["Draft_ApplyStyle", "Draft_ToggleDisplayMode",
                             "Draft_AddToGroup", "Draft_SelectGroup",

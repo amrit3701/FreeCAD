@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Copyright (c) Jürgen Riegel          (juergen.riegel@web.de) 2007     *
+ *   Copyright (c) 2007 Jürgen Riegel <juergen.riegel@web.de>              *
  *                                                                         *
  *   This file is part of the FreeCAD CAx development system.              *
  *                                                                         *
@@ -30,6 +30,7 @@
 #include <App/DocumentObject.h>
 #include <App/PropertyStandard.h>
 #include <App/PropertyGeo.h>
+#include <App/PropertyUnits.h>
 #include <App/FeaturePython.h>
 
 namespace TechDraw
@@ -51,13 +52,13 @@ public:
     DrawView(void);
     virtual ~DrawView();
 
-    App::PropertyFloat X;
-    App::PropertyFloat Y;
-    App::PropertyBool  LockPosition;
+    App::PropertyDistance X;
+    App::PropertyDistance Y;
+    App::PropertyBool LockPosition;
     App::PropertyFloatConstraint Scale;
 
     App::PropertyEnumeration ScaleType;
-    App::PropertyFloat Rotation;
+    App::PropertyAngle Rotation;
     App::PropertyString Caption;
 
     /** @name methods override Feature */
@@ -67,7 +68,8 @@ public:
     virtual void onDocumentRestored() override;
     virtual short mustExecute() const override;
     //@}
-    void Restore(Base::XMLReader &reader) override;
+    virtual void handleChangedPropertyType(
+        Base::XMLReader &reader, const char * TypeName, App::Property * prop) override;
 
     bool isInClip();
     DrawViewClip* getClipGroup(void);
@@ -91,6 +93,7 @@ public:
     void requestPaint(void);
     virtual void handleXYLock(void);
     virtual bool isLocked(void) const;
+    virtual bool showLock(void) const;
 
     std::vector<TechDraw::DrawLeaderLine*> getLeaders(void) const;
 

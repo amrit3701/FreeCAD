@@ -24,6 +24,10 @@
 #include "PreCompiled.h"
 
 #ifndef _PreComp_
+# ifdef _MSC_VER
+#  define _USE_MATH_DEFINES
+#  include <cmath>
+# endif //_MSC_VER
 #endif
 
 #include "ViewProviderAttachExtension.h"
@@ -51,16 +55,7 @@ QIcon ViewProviderAttachExtension::extensionMergeOverlayIcons(const QIcon & orig
 
         if (attach) {
 
-            bool attached = false;
-
-            try{
-                attached = attach->positionBySupport();
-            }
-            catch (...) { // We are just trying to get an icon, if no placement can be calculated, set unattached.
-                // set unattached
-            }
-
-            if(!attached) {
+            if(!attach->isAttacherActive()) {
                 QPixmap px;
 
                 static const char * const feature_detached_xpm[]={

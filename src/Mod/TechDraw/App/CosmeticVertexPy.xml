@@ -25,5 +25,24 @@
             <UserDocu>Create a copy of this CosmeticVertex</UserDocu>
         </Documentation>
     </Methode>
+    <Attribute Name="Tag" ReadOnly="true">
+      <Documentation>
+        <UserDocu>Gives the tag of the CosmeticVertex as string.</UserDocu>
+      </Documentation>
+      <Parameter Name="Tag" Type="String"/>
+    </Attribute>
+    <Attribute Name="Point">
+      <Documentation>
+        <UserDocu>Gives the position of this CosmeticVertex as vector.</UserDocu>
+      </Documentation>
+      <Parameter Name="Point" Type="Object"/>
+    </Attribute>
+    <Attribute Name="Show">
+      <Documentation>
+        <UserDocu>Show/hide the vertex.</UserDocu>
+      </Documentation>
+      <Parameter Name="Show" Type="Boolean"/>
+    </Attribute>
+
   </PythonExport>
 </GenerateModel>

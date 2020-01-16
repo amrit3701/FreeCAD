@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Copyright (c) Jürgen Riegel          (juergen.riegel@web.de) 2010     *
+ *   Copyright (c) 2010 Jürgen Riegel <juergen.riegel@web.de>              *
  *                                                                         *
  *   This file is part of the FreeCAD CAx development system.              *
  *                                                                         *
@@ -50,7 +50,7 @@ using namespace TechDraw;
 // PropertyCosmeticEdgeList
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-TYPESYSTEM_SOURCE(TechDraw::PropertyCosmeticEdgeList, App::PropertyLists);
+TYPESYSTEM_SOURCE(TechDraw::PropertyCosmeticEdgeList, App::PropertyLists)
 
 //**************************************************************************
 // Construction/Destruction
@@ -116,7 +116,6 @@ PyObject *PropertyCosmeticEdgeList::getPyObject(void)
 void PropertyCosmeticEdgeList::setPyObject(PyObject *value)
 {
     // check container of this property to notify about changes
-//    Part2DObject* part2d = dynamic_cast<Part2DObject*>(this->getContainer());
 
     if (PySequence_Check(value)) {
         Py_ssize_t nSize = PySequence_Size(value);
@@ -135,8 +134,6 @@ void PropertyCosmeticEdgeList::setPyObject(PyObject *value)
         }
 
         setValues(values);
-//        if (part2d)
-//            part2d->acceptCosmeticEdge();
     }
     else if (PyObject_TypeCheck(value, &(CosmeticEdgePy::Type))) {
         CosmeticEdgePy  *pcObject = static_cast<CosmeticEdgePy*>(value);

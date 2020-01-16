@@ -158,6 +158,13 @@ bool QGIView::isVisible(void)
     return result;
 }
 
+//Set selection state for this and it's children
+//required for items like dimensions & balloons
+void QGIView::setGroupSelection(bool b)
+{
+    setSelected(b);
+}
+
 void QGIView::alignTo(QGraphicsItem*item, const QString &alignment)
 {
     alignHash.clear();
@@ -208,6 +215,9 @@ QVariant QGIView::itemChange(GraphicsItemChange change, const QVariant &value)
                     }
                 }
             }
+        } else {
+            //not a dpgi, not locked, but moved.
+            //feat->setPosition(Rez::appX(newPos.x()), -Rez::appX(newPos.y());
         }
         return newPos;
     }
@@ -215,8 +225,10 @@ QVariant QGIView::itemChange(GraphicsItemChange change, const QVariant &value)
     if (change == ItemSelectedHasChanged && scene()) {
         if(isSelected()) {
             m_colCurrent = getSelectColor();
+//            m_selectState = 2;
         } else {
             m_colCurrent = getNormalColor();
+//            m_selectState = 0;
         }
         drawBorder();
     }
@@ -239,6 +251,10 @@ void QGIView::mousePressEvent(QGraphicsSceneMouseEvent * event)
 
 void QGIView::mouseReleaseEvent(QGraphicsSceneMouseEvent * event)
 {
+    //TODO: this should be done in itemChange - item position has changed
+    //TODO: and should check for dragging
+//    Base::Console().Message("QGIV::mouseReleaseEvent() - %s\n",getViewName());
+//    if(scene() && this == scene()->mouseGrabberItem()) {
     if(!m_locked) {
         if (!isInnerView()) {
             double tempX = x(),
@@ -253,6 +269,7 @@ void QGIView::mouseReleaseEvent(QGraphicsSceneMouseEvent * event)
 
 void QGIView::hoverEnterEvent(QGraphicsSceneHoverEvent *event)
 {
+//    Base::Console().Message("QGIV::hoverEnterEvent()\n");
     Q_UNUSED(event);
     // TODO don't like this but only solution at the minute (MLP)
     if (isSelected()) {
@@ -330,13 +347,6 @@ void QGIView::updateView(bool update)
         setFlag(QGraphicsItem::ItemIsMovable, true);
     }
 
-    if (getViewObject()->X.isTouched() ||                   //change in feat position
-        getViewObject()->Y.isTouched()) {
-        double featX = Rez::guiX(getViewObject()->X.getValue());
-        double featY = Rez::guiX(getViewObject()->Y.getValue());
-        setPosition(featX,featY);
-    }
-
     double appRotation = getViewObject()->Rotation.getValue();
     double guiRotation = rotation();
     if (!TechDraw::DrawUtil::fpCompare(appRotation,guiRotation)) {
@@ -405,6 +415,13 @@ void QGIView::toggleCache(bool state)
 
 void QGIView::draw()
 {
+//    Base::Console().Message("QGIV::draw()\n");
+    double x, y;
+    if (getViewObject() != nullptr) {
+        x = Rez::guiX(getViewObject()->X.getValue());
+        y = Rez::guiX(getViewObject()->Y.getValue());
+        setPosition(x, y);
+    }
     if (isVisible()) {
         drawBorder();
         show();
@@ -495,7 +512,8 @@ void QGIView::drawBorder()
 
     double lockX = frameArea.left();
     double lockY = frameArea.bottom() - m_lockHeight;
-    if (feat->isLocked()) {
+    if (feat->isLocked() &&
+        feat->showLock()) {
         m_lock->setZValue(ZVALUE::LOCK);
         m_lock->setPos(lockX,lockY);
         m_lock->show();
@@ -518,6 +536,7 @@ void QGIView::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, Q
     QStyleOptionGraphicsItem myOption(*option);
     myOption.state &= ~QStyle::State_Selected;
 
+//    painter->setPen(Qt::red);
 //    painter->drawRect(boundingRect());          //good for debugging
 
     QGraphicsItemGroup::paint(painter, &myOption, widget);
@@ -534,8 +553,12 @@ QRectF QGIView::customChildrenBoundingRect() const
     int textLeaderItemType = QGraphicsItem::UserType + 233;  // TODO: Magic number warning
     int editablePathItemType = QGraphicsItem::UserType + 301;  // TODO: Magic number warning
     int movableTextItemType = QGraphicsItem::UserType + 300;
+    int weldingSymbolItemType = QGraphicsItem::UserType + 340;
     QRectF result;
     for (QList<QGraphicsItem*>::iterator it = children.begin(); it != children.end(); ++it) {
+        if (!(*it)->isVisible()) {
+            continue;
+        }
         if ( ((*it)->type() != dimItemType) &&
              ((*it)->type() != leaderItemType) &&
              ((*it)->type() != textLeaderItemType) &&
@@ -543,6 +566,7 @@ QRectF QGIView::customChildrenBoundingRect() const
              ((*it)->type() != movableTextItemType) &&
              ((*it)->type() != borderItemType) &&
              ((*it)->type() != labelItemType)  &&
+             ((*it)->type() != weldingSymbolItemType)  &&
              ((*it)->type() != captionItemType) ) {
             QRectF childRect = mapFromItem(*it,(*it)->boundingRect()).boundingRect();
             result = result.united(childRect);
@@ -622,6 +646,7 @@ bool QGIView::getFrameState(void)
     return result;
 }
 
+//TODO: change name to prefNormalColor()
 QColor QGIView::getNormalColor()
 {
     Base::Reference<ParameterGrp> hGrp = getParmGroupCol();
@@ -685,9 +710,15 @@ int QGIView::calculateFontPixelSize(double sizeInMillimetres)
     return (int) (Rez::guiX(sizeInMillimetres) + 0.5);
 }
 
+int QGIView::calculateFontPixelWidth(const QFont &font)
+{
+    // Return the width of digit 0, most likely the most wide digit
+    return QFontMetrics(font).width(QChar::fromLatin1('0'));
+}
+
 const double QGIView::DefaultFontSizeInMM = 5.0;
 
-void QGIView::dumpRect(char* text, QRectF r) {
+void QGIView::dumpRect(const char* text, QRectF r) {
     Base::Console().Message("DUMP - %s - rect: (%.3f,%.3f) x (%.3f,%.3f)\n",text,
                             r.left(),r.top(),r.right(),r.bottom());
 }
@@ -700,6 +731,7 @@ void QGIView::makeMark(double x, double y, QColor c)
     vItem->setWidth(2.0);
     vItem->setRadius(20.0);
     vItem->setNormalColor(c);
+    vItem->setFillColor(c);
     vItem->setPrettyNormal();
     vItem->setZValue(ZVALUE::VERTEX);
 }

@@ -1,7 +1,5 @@
 #***************************************************************************
-#*                                                                         *
-#*   Copyright (c) 2011                                                    *
-#*   Yorik van Havre <yorik@uncreated.net>                                 *
+#*   Copyright (c) 2011 Yorik van Havre <yorik@uncreated.net>              *
 #*                                                                         *
 #*   This program is free software; you can redistribute it and/or modify  *
 #*   it under the terms of the GNU Lesser General Public License (LGPL)    *
@@ -133,22 +131,20 @@ def removeFromComponent(compobject,subobject):
 
 
 
-class Component:
-
+class Component(ArchIFC.IfcProduct):
 
     "The default Arch Component object"
 
-    def __init__(self,obj):
-
+    def __init__(self, obj):
         obj.Proxy = self
-        Component.setProperties(self,obj)
+        Component.setProperties(self, obj)
         self.Type = "Component"
 
-    def setProperties(self,obj):
+    def setProperties(self, obj):
         
         "Sets the needed properties of this object"
 
-        ArchIFC.setProperties(obj)
+        ArchIFC.IfcProduct.setProperties(self, obj)
 
         pl = obj.PropertiesList
         if not "Base" in pl:
@@ -195,9 +191,8 @@ class Component:
         #self.MoveWithHost = False
         self.Type = "Component"
 
-    def onDocumentRestored(self,obj):
-
-        Component.setProperties(self,obj)
+    def onDocumentRestored(self, obj):
+        Component.setProperties(self, obj)
 
     def execute(self,obj):
 
@@ -210,24 +205,20 @@ class Component:
             obj.Shape = shape
 
     def __getstate__(self):
-
         # for compatibility with 0.17
         if hasattr(self,"Type"):
             return self.Type
         return "Component"
 
     def __setstate__(self,state):
-
         return None
 
     def onBeforeChange(self,obj,prop):
-
         if prop == "Placement":
             self.oldPlacement = FreeCAD.Placement(obj.Placement)
 
-    def onChanged(self,obj,prop):
-
-        ArchIFC.onChanged(obj, prop)
+    def onChanged(self, obj, prop):
+        ArchIFC.IfcProduct.onChanged(self, obj, prop)
 
         if prop == "Placement":
             if hasattr(self,"oldPlacement"):
@@ -275,6 +266,23 @@ class Component:
             else:
                 ilist2.append(o)
         return ilist2
+
+    def getParentHeight(self,obj):
+        
+        "gets a height value from a host BuildingPart"
+        
+        for parent in obj.InList:
+            if Draft.getType(parent) in ["Floor","BuildingPart"]:
+                if obj in parent.Group:
+                    if parent.HeightPropagate:
+                        if parent.Height.Value:
+                            return parent.Height.Value
+        # not found? get one level higher
+        for parent in obj.InList:
+            if hasattr(parent,"Group"):
+                if obj in parent.Group:
+                    return self.getParentHeight(parent)
+        return 0
 
     def clone(self,obj):
 
@@ -459,11 +467,11 @@ class Component:
         for o in obj.Additions:
 
             if not base:
-                if o.isDerivedFrom("Part::Feature"):
+                if hasattr(o,'Shape'):
                     base = o.Shape
             else:
                 if base.isNull():
-                    if o.isDerivedFrom("Part::Feature"):
+                    if hasattr(o,'Shape'):
                         base = o.Shape
                 else:
                     # special case, both walls with coinciding endpoints
@@ -475,7 +483,7 @@ class Component:
                             add.Placement = add.Placement.multiply(placement)
                         base = base.fuse(add)
 
-                    elif o.isDerivedFrom("Part::Feature"):
+                    elif hasattr(o,'Shape'):
                         if o.Shape:
                             if not o.Shape.isNull():
                                 if o.Shape.Solids:
@@ -527,7 +535,7 @@ class Component:
                             else:
                                 base = base.cut(f)
 
-                elif o.isDerivedFrom("Part::Feature"):
+                elif hasattr(o,'Shape'):
                     if o.Shape:
                         if not o.Shape.isNull():
                             if o.Shape.Solids and base.Solids:
@@ -554,7 +562,7 @@ class Component:
                     if hasattr(obj.Axis.Proxy,"getPoints"):
                         points = obj.Axis.Proxy.getPoints(obj.Axis)
                 if not points:
-                    if obj.Axis.isDerivedFrom("Part::Feature"):
+                    if hasattr(obj.Axis,'Shape'):
                         points = [v.Point for v in obj.Axis.Shape.Vertexes]
         if points:
             shps = []
@@ -741,12 +749,19 @@ class ViewProviderComponent:
 
         vobj.Proxy = self
         self.Object = vobj.Object
+        self.setProperties(vobj)
+        
+    def setProperties(self,vobj):
+
+        if not "UseMaterialColor" in vobj.PropertiesList:
+            vobj.addProperty("App::PropertyBool","UseMaterialColor","Component",QT_TRANSLATE_NOOP("App::Property","Use the material color as this object's shape color, if available"))
+            vobj.UseMaterialColor = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/Arch").GetBool("UseMaterialColor",True)
 
     def updateData(self,obj,prop):
 
         #print(obj.Name," : updating ",prop)
         if prop == "Material":
-            if obj.Material:
+            if obj.Material and ( (not hasattr(obj.ViewObject,"UseMaterialColor")) or obj.ViewObject.UseMaterialColor):
                 if hasattr(obj.Material,"Material"):
                     if 'DiffuseColor' in obj.Material.Material:
                         if "(" in obj.Material.Material['DiffuseColor']:

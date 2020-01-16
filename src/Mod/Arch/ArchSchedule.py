@@ -1,8 +1,7 @@
 # -*- coding: utf8 -*-
 
 #***************************************************************************
-#*                                                                         *
-#*   Copyright (c) 2015 - Yorik van Havre <yorik@uncreated.net>            *
+#*   Copyright (c) 2015 Yorik van Havre <yorik@uncreated.net>              *
 #*                                                                         *
 #*   This program is free software; you can redistribute it and/or modify  *
 #*   it under the terms of the GNU Lesser General Public License (LGPL)    *
@@ -22,6 +21,7 @@
 #*                                                                         *
 #***************************************************************************
 
+from __future__ import print_function
 import sys
 import FreeCAD, time
 if FreeCAD.GuiUp:

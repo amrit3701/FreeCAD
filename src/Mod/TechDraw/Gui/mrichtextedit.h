@@ -33,7 +33,7 @@
 #include "ui_mrichtextedit.h"
 
 /**
- * @Brief A simple rich-text editor
+ * @brief A simple rich-text editor
  */
 class MRichTextEdit : public QWidget, protected Ui::MRichTextEdit {
     Q_OBJECT
@@ -46,10 +46,10 @@ class MRichTextEdit : public QWidget, protected Ui::MRichTextEdit {
     QTextCursor    textCursor() const { return f_textedit->textCursor(); }
     void           setTextCursor(const QTextCursor& cursor) { f_textedit->setTextCursor(cursor); }
     void setMaxWidth(double w);
-/*    void setFontSize(double fs);*/
     void setDefFontSize(int fs);
     void setDefFont(QString f);
     QString getDefFontSize(void);
+    int getDefFontSizeNum(void);
     QFont getDefFont(void);
    
   public slots:
@@ -96,6 +96,7 @@ Q_SIGNALS:
     void focusInEvent(QFocusEvent *event);
     bool hasMultipleSizes(void);
 
+    void addFontSize(QString fs);
 
     QStringList m_paragraphItems;
     int m_fontsize_h1;

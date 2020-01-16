@@ -123,6 +123,7 @@ TaskLeaderLine::TaskLeaderLine(TechDrawGui::ViewProviderLeader* leadVP) :
     saveState();
 
     m_trackerMode = QGTracker::TrackerMode::Line;
+    m_saveContextPolicy = m_mdi->contextMenuPolicy();
 }
 
 //ctor for creation
@@ -165,6 +166,8 @@ TaskLeaderLine::TaskLeaderLine(TechDraw::DrawView* baseFeat,
     ui->pbCancelEdit->setEnabled(false);
 
     m_trackerMode = QGTracker::TrackerMode::Line;
+    m_saveContextPolicy = m_mdi->contextMenuPolicy();
+
 }
 
 TaskLeaderLine::~TaskLeaderLine()
@@ -207,7 +210,7 @@ void TaskLeaderLine::changeEvent(QEvent *e)
 void TaskLeaderLine::setUiPrimary()
 {
 //    Base::Console().Message("TTL::setUiPrimary()\n");
-    enableVPUi(false);
+    enableVPUi(true);
     setWindowTitle(QObject::tr("New Leader Line"));
 
     if (m_baseFeat != nullptr) {
@@ -221,6 +224,8 @@ void TaskLeaderLine::setUiPrimary()
     ui->cboxStartSym->setCurrentIndex(aSize);
 }
 
+//switch widgets related to ViewProvider on/off
+//there is no ViewProvider until some time after feature is created.
 void TaskLeaderLine::enableVPUi(bool b)
 {
     ui->cpLineColor->setEnabled(b);
@@ -284,9 +289,29 @@ void TaskLeaderLine::createLeaderFeature(std::vector<Base::Vector3d> converted)
         }
         commonFeatureUpdate();
     }
-    
+
+    if (m_lineFeat != nullptr) {
+        Gui::ViewProvider* vp = QGIView::getViewProvider(m_lineFeat);
+        auto leadVP = dynamic_cast<ViewProviderLeader*>(vp);
+        if ( leadVP != nullptr ) {
+            App::Color ac;
+            ac.setValue<QColor>(ui->cpLineColor->color());
+            leadVP->Color.setValue(ac);
+            leadVP->LineWidth.setValue(ui->dsbWeight->value());
+            leadVP->LineStyle.setValue(ui->cboxStyle->currentIndex());
+        }
+    }
+
     Gui::Command::updateActive();
     Gui::Command::commitCommand();
+
+    //trigger claimChildren in tree
+    if (m_baseFeat != nullptr) {
+        m_baseFeat->touch();
+    }
+    if (m_basePage != nullptr) {
+        m_basePage->touch();
+    }
     m_lineFeat->requestPaint();
 }
 
@@ -302,7 +327,12 @@ void TaskLeaderLine::updateLeaderFeature(void)
     m_lineVP->LineWidth.setValue(ui->dsbWeight->value());
     m_lineVP->LineStyle.setValue(ui->cboxStyle->currentIndex());
 
+    Gui::Command::updateActive();
     Gui::Command::commitCommand();
+
+    if (m_baseFeat != nullptr) {
+        m_baseFeat->requestPaint();
+    }
     m_lineFeat->requestPaint();
 }
 
@@ -648,12 +678,12 @@ bool TaskLeaderLine::accept()
 //        removeTracker();
         createLeaderFeature(m_trackerPoints);
     }
-    m_mdi->setContextMenuPolicy(m_saveContextPolicy);
     m_trackerMode = QGTracker::TrackerMode::None;
     removeTracker();
 
     Gui::Command::doCommand(Gui::Command::Gui,"Gui.ActiveDocument.resetEdit()");
 
+    m_mdi->setContextMenuPolicy(m_saveContextPolicy);
     return true;
 }
 
@@ -670,9 +700,6 @@ bool TaskLeaderLine::reject()
     Gui::Document* doc = Gui::Application::Instance->getDocument(m_basePage->getDocument());
     if (!doc) return false;
 
-    if (m_mdi != nullptr) {
-        m_mdi->setContextMenuPolicy(m_saveContextPolicy);
-    }
     if (getCreateMode() &&
         (m_lineFeat != nullptr) )  {
         removeFeature();
@@ -689,6 +716,10 @@ bool TaskLeaderLine::reject()
     //make sure any dangling objects are cleaned up 
     Gui::Command::doCommand(Gui::Command::Gui,"App.activeDocument().recompute()");
     Gui::Command::doCommand(Gui::Command::Gui,"Gui.ActiveDocument.resetEdit()");
+
+    if (m_mdi != nullptr) {
+        m_mdi->setContextMenuPolicy(m_saveContextPolicy);
+    }
 
     return false;
 }

@@ -49,14 +49,14 @@
 
 using namespace TechDrawGui;
 
-QGCustomText::QGCustomText()
+QGCustomText::QGCustomText(QGraphicsItem* parent) :
+    QGraphicsTextItem(parent)
 {
     setCacheMode(QGraphicsItem::NoCache);
     setAcceptHoverEvents(false);
     setFlag(QGraphicsItem::ItemIsSelectable, false);
     setFlag(QGraphicsItem::ItemIsMovable, false);
 
-    isHighlighted = false;
     m_colCurrent = getNormalColor();
     m_colNormal  = m_colCurrent;
 }
@@ -64,12 +64,6 @@ QGCustomText::QGCustomText()
 void QGCustomText::centerAt(QPointF centerPos)
 {
       centerAt(centerPos.x(),centerPos.y());
-//    QRectF box = boundingRect();
-//    double width = box.width();
-//    double height = box.height();
-//    double newX = centerPos.x() - width/2.;
-//    double newY = centerPos.y() - height/2.;
-//    setPos(newX,newY);
 }
 
 void QGCustomText::centerAt(double cX, double cY)
@@ -82,8 +76,52 @@ void QGCustomText::centerAt(double cX, double cY)
     setPos(newX,newY);
 }
 
+void QGCustomText::justifyLeftAt(QPointF centerPos, bool vCenter)
+{
+    justifyLeftAt(centerPos.x(),centerPos.y(), vCenter);
+}
+
+void QGCustomText::justifyLeftAt(double cX, double cY, bool vCenter)
+{
+    QRectF box = boundingRect();
+    double height = box.height();
+    double newY = cY - height;
+    if (vCenter) {
+        newY = cY - height/2.;
+    }
+    setPos(cX,newY);
+}
+
+void QGCustomText::justifyRightAt(QPointF centerPos, bool vCenter)
+{
+    justifyRightAt(centerPos.x(),centerPos.y(), vCenter);
+}
+
+void QGCustomText::justifyRightAt(double cX, double cY, bool vCenter)
+{
+    QRectF box = boundingRect();
+    double width = box.width();
+    double height = box.height();
+    double newX = cX - width;
+    double newY = cY - height;
+    if (vCenter) {
+        newY = cY - height/2.;
+    }
+    setPos(newX,newY);
+}
+
+double QGCustomText::getHeight(void)
+{
+    return boundingRect().height();
+}
+
+double QGCustomText::getWidth(void)
+{
+    return boundingRect().width();
+}
 QVariant QGCustomText::itemChange(GraphicsItemChange change, const QVariant &value)
 {
+//    Base::Console().Message("QGCT::itemChange - this: %X change: %d\n", this, change);
     if (change == ItemSelectedHasChanged && scene()) {
         if(isSelected()) {
             setPrettySel();
@@ -105,57 +143,55 @@ void QGCustomText::hoverEnterEvent(QGraphicsSceneHoverEvent *event)
 
 void QGCustomText::hoverLeaveEvent(QGraphicsSceneHoverEvent *event)
 {
-    if(!isSelected() && !isHighlighted) {
+    if(!isSelected()) {
         setPrettyNormal();
     }
     QGraphicsTextItem::hoverLeaveEvent(event);
 }
 
 void QGCustomText::setPrettyNormal() {
-//    m_colCurrent = getNormalColor();
     m_colCurrent = m_colNormal;
+    setDefaultTextColor(m_colCurrent);
     update();
 }
 
 void QGCustomText::setPrettyPre() {
     m_colCurrent = getPreColor();
+    setDefaultTextColor(m_colCurrent);
     update();
 }
 
 void QGCustomText::setPrettySel() {
     m_colCurrent = getSelectColor();
+    setDefaultTextColor(m_colCurrent);
     update();
 }
+
+void QGCustomText::setColor(QColor c)
+{
+    m_colNormal = c;
+    m_colCurrent = c;
+    QGraphicsTextItem::setDefaultTextColor(c);
+ }
 
 void QGCustomText::paint ( QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * widget) {
     QStyleOptionGraphicsItem myOption(*option);
     myOption.state &= ~QStyle::State_Selected;
 
+//    painter->setPen(Qt::green);
 //    painter->drawRect(boundingRect());          //good for debugging
 
-    setDefaultTextColor(m_colCurrent);
     QGraphicsTextItem::paint (painter, &myOption, widget);
 }
 
-QColor QGCustomText::getNormalColor()
+QColor QGCustomText::getNormalColor()    //preference!
 {
+//    Base::Console().Message("QGCT::getNormalColor() - pref\n");
     QColor result;
-    QGIView *parent;
-    QGraphicsItem* qparent = parentItem();
-    if (qparent == nullptr) {
-        parent = nullptr;
-    } else {
-        parent = dynamic_cast<QGIView *> (qparent);
-    }
-
-    if (parent != nullptr) {
-        result = parent->getNormalColor();
-    } else {
-        Base::Reference<ParameterGrp> hGrp = getParmGroup();
-        App::Color fcColor;
-        fcColor.setPackedValue(hGrp->GetUnsigned("NormalColor", 0x00000000));
-        result = fcColor.asValue<QColor>();
-    }
+    Base::Reference<ParameterGrp> hGrp = getParmGroup();
+    App::Color fcColor;
+    fcColor.setPackedValue(hGrp->GetUnsigned("NormalColor", 0x00000000));
+    result = fcColor.asValue<QColor>();
     return result;
 }
 

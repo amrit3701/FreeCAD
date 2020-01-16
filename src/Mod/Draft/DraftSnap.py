@@ -1,7 +1,5 @@
 #***************************************************************************
-#*                                                                         *
-#*   Copyright (c) 2011                                                    *
-#*   Yorik van Havre <yorik@uncreated.net>                                 *
+#*   Copyright (c) 2011 Yorik van Havre <yorik@uncreated.net>              *
 #*                                                                         *
 #*   This program is free software; you can redistribute it and/or modify  *
 #*   it under the terms of the GNU Lesser General Public License (LGPL)    *
@@ -23,7 +21,7 @@
 
 __title__="FreeCAD Draft Snap tools"
 __author__ = "Yorik van Havre"
-__url__ = "http://www.freecadweb.org"
+__url__ = "https://www.freecadweb.org"
 
 ## @package DraftSnap
 #  \ingroup DRAFT
@@ -234,8 +232,8 @@ class Snapper:
             self.trackLine.p1(lastpoint)
 
         # checking if parallel to one of the edges of the last objects or to a polar direction
+        eline = None
         if active:
-            eline = None
             point,eline = self.snapToPolar(point,lastpoint)
             point,eline = self.snapToExtensions(point,lastpoint,constrain,eline)
 
@@ -273,14 +271,21 @@ class Snapper:
 
     def snapToObject(self, lastpoint, active, constrain, eline, point, oldActive):
         # we have an object to snap to
-        snaps = []
 
-        obj = FreeCAD.ActiveDocument.getObject(self.snapInfo['Object'])
+        parent = self.snapInfo.get('ParentObject',None)
+        if parent:
+            subname = self.snapInfo['SubName']
+            obj = parent.getSubObject(subname,retType=1)
+        else:
+            obj = FreeCAD.ActiveDocument.getObject(self.snapInfo['Object'])
+            parent = obj
+            subname = self.snapInfo['Component']
         if not obj:
-            self.spoint = self.cstr(lastpoint, constrain, point)
+            self.spoint = cstr(point)
             self.running = False
             return self.spoint
 
+        snaps = []
         self.lastSnappedObject = obj
 
         if hasattr(obj.ViewObject,"Selectable"):
@@ -303,11 +308,10 @@ class Snapper:
             # active snapping
             comp = self.snapInfo['Component']
 
-            if obj.isDerivedFrom("Part::Feature"):
+            shape = Part.getShape(parent,subname,
+                        needSubElement=True,noElementMap=True)
 
-                # applying global placements
-                shape = obj.Shape.copy()
-                shape.Placement = obj.getGlobalPlacement()
+            if not shape.isNull():
 
                 snaps.extend(self.snapToSpecials(obj,lastpoint,eline))
 
@@ -318,9 +322,14 @@ class Snapper:
                 if (not self.maxEdges) or (len(shape.Edges) <= self.maxEdges):
                     if "Edge" in comp:
                         # we are snapping to an edge
-                        en = int(comp[4:])-1
-                        if len(shape.Edges) > en:
-                            edge = shape.Edges[en]
+                        edge = None
+                        if shape.ShapeType == "Edge":
+                            edge = shape
+                        else:
+                            en = int(comp[4:])-1
+                            if len(shape.Edges) > en:
+                                edge = shape.Edges[en]
+                        if edge:
                             snaps.extend(self.snapToEndpoints(edge))
                             snaps.extend(self.snapToMidpoint(edge))
                             snaps.extend(self.snapToPerpendicular(edge,lastpoint))
@@ -396,7 +405,7 @@ class Snapper:
         winner = None
         fp = point
         for snap in snaps:
-            if (not snap) or (snap[0] == None):
+            if (not snap) or (snap[0] is None):
                 pass
                 #print("debug: Snapper: invalid snap point: ",snaps)
             else:
@@ -1353,7 +1362,7 @@ class Snapper:
     def toggle(self,checked=None):
         "toggles the snap mode"
         if hasattr(self,"toolbarButtons"):
-            if checked == None:
+            if checked is None:
                 self.masterbutton.toggle()
             elif checked:
                 if hasattr(self,"savedButtonStates"):
@@ -1394,6 +1403,15 @@ class Snapper:
         self.toolbar.toggleViewAction().setVisible(True)
         if FreeCADGui.ActiveDocument:
             self.setTrackers()
+            if not FreeCAD.ActiveDocument.Objects:
+                if FreeCADGui.ActiveDocument.ActiveView:
+                    if FreeCADGui.ActiveDocument.ActiveView.getCameraType() == 'Orthographic':
+                        c = FreeCADGui.ActiveDocument.ActiveView.getCameraNode()
+                        if c.orientation.getValue().getValue() == (0.0, 0.0, 0.0, 1.0):
+                            p = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/Draft")
+                            h = p.GetInt("defaultCameraHeight",0)
+                            if h:
+                                c.height.setValue(h)
 
     def hide(self):
         if hasattr(self,"toolbar"):

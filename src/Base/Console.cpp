@@ -1,5 +1,5 @@
 /***************************************************************************
- *   (c) Jürgen Riegel (juergen.riegel@web.de) 2002                        *
+ *   Copyright (c) 2002 Jürgen Riegel <juergen.riegel@web.de>              *
  *                                                                         *
  *   This file is part of the FreeCAD CAx development system.              *
  *                                                                         *
@@ -19,7 +19,6 @@
  *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  *
  *   USA                                                                   *
  *                                                                         *
- *   Juergen Riegel 2002                                                   *
  ***************************************************************************/
 
 #include "PreCompiled.h"
@@ -40,6 +39,7 @@
 #include "Exception.h"
 #include "PyObjectBase.h"
 #include <QCoreApplication>
+#include <frameobject.h>
 
 using namespace Base;
 
@@ -133,7 +133,7 @@ ConsoleSingleton::ConsoleSingleton(void)
 ConsoleSingleton::~ConsoleSingleton()
 {
     ConsoleOutput::destruct();
-    for(std::set<ConsoleObserver * >::iterator Iter=_aclObservers.begin();Iter!=_aclObservers.end();++Iter)
+    for(std::set<ILogger * >::iterator Iter=_aclObservers.begin();Iter!=_aclObservers.end();++Iter)
         delete (*Iter);
 }
 
@@ -166,7 +166,7 @@ void ConsoleSingleton::UnsetConsoleMode(ConsoleMode m)
  * @code
  * // switch off warnings and error messages
  * ConsoleMsgFlags ret = Base::Console().SetEnabledMsgType("myObs",
- *                             ConsoleMsgType::MsgType_Wrn|ConsoleMsgType::MsgType_Err, false);
+ *                       Base:ConsoleSingleton::MsgType_Wrn|Base::ConsoleSingleton::MsgType_Err, false);
  * // do something without notifying observer myObs
  * ...
  * // restore the former configuration again
@@ -177,7 +177,7 @@ void ConsoleSingleton::UnsetConsoleMode(ConsoleMode m)
  */
 ConsoleMsgFlags ConsoleSingleton::SetEnabledMsgType(const char* sObs, ConsoleMsgFlags type, bool b)
 {
-    ConsoleObserver* pObs = Get(sObs);
+    ILogger* pObs = Get(sObs);
     if ( pObs ){
         ConsoleMsgFlags flags=0;
 
@@ -210,7 +210,7 @@ ConsoleMsgFlags ConsoleSingleton::SetEnabledMsgType(const char* sObs, ConsoleMsg
 
 bool ConsoleSingleton::IsMsgTypeEnabled(const char* sObs, FreeCAD_ConsoleMsgType type) const
 {
-    ConsoleObserver* pObs = Get(sObs);
+    ILogger* pObs = Get(sObs);
     if (pObs) {
         switch (type) {
         case MsgType_Txt:
@@ -251,18 +251,24 @@ void ConsoleSingleton::SetConnectionMode(ConnectionMode mode)
  */
 void ConsoleSingleton::Message( const char *pMsg, ... )
 {
-    char format[BufferSize];
-    const unsigned int format_len = BufferSize;
+#define FC_CONSOLE_FMT(_type,_type2) \
+    char format[BufferSize];\
+    format[sizeof(format)-4] = '.';\
+    format[sizeof(format)-3] = '.';\
+    format[sizeof(format)-2] = '\n';\
+    format[sizeof(format)-1] = 0;\
+    const unsigned int format_len = sizeof(format)-4;\
+    va_list namelessVars;\
+    va_start(namelessVars, pMsg);\
+    vsnprintf(format, format_len, pMsg, namelessVars);\
+    format[sizeof(format)-5] = '.';\
+    va_end(namelessVars);\
+    if (connectionMode == Direct)\
+        Notify##_type(format);\
+    else\
+        QCoreApplication::postEvent(ConsoleOutput::getInstance(), new ConsoleEvent(MsgType_##_type2, format));
 
-    va_list namelessVars;
-    va_start(namelessVars, pMsg);  // Get the "..." vars
-    vsnprintf(format, format_len, pMsg, namelessVars);
-    va_end(namelessVars);
-
-    if (connectionMode == Direct)
-        NotifyMessage(format);
-    else
-        QCoreApplication::postEvent(ConsoleOutput::getInstance(), new ConsoleEvent(MsgType_Txt, format));
+    FC_CONSOLE_FMT(Message,Txt);
 }
 
 /** Prints a Message
@@ -282,18 +288,7 @@ void ConsoleSingleton::Message( const char *pMsg, ... )
  */
 void ConsoleSingleton::Warning( const char *pMsg, ... )
 {
-    char format[BufferSize];
-    const unsigned int format_len = BufferSize;
-
-    va_list namelessVars;
-    va_start(namelessVars, pMsg);  // Get the "..." vars
-    vsnprintf(format, format_len, pMsg, namelessVars);
-    va_end(namelessVars);
-
-    if (connectionMode == Direct)
-        NotifyWarning(format);
-    else
-        QCoreApplication::postEvent(ConsoleOutput::getInstance(), new ConsoleEvent(MsgType_Wrn, format));
+    FC_CONSOLE_FMT(Warning,Wrn);
 }
 
 /** Prints a Message
@@ -313,18 +308,7 @@ void ConsoleSingleton::Warning( const char *pMsg, ... )
  */
 void ConsoleSingleton::Error( const char *pMsg, ... )
 {
-    char format[BufferSize];
-    const unsigned int format_len = BufferSize;
-
-    va_list namelessVars;
-    va_start(namelessVars, pMsg);  // Get the "..." vars
-    vsnprintf(format, format_len, pMsg, namelessVars);
-    va_end(namelessVars);
-
-    if (connectionMode == Direct)
-        NotifyError(format);
-    else
-        QCoreApplication::postEvent(ConsoleOutput::getInstance(), new ConsoleEvent(MsgType_Err, format));
+    FC_CONSOLE_FMT(Error,Err);
 }
 
 
@@ -346,23 +330,11 @@ void ConsoleSingleton::Error( const char *pMsg, ... )
 
 void ConsoleSingleton::Log( const char *pMsg, ... )
 {
-    char format[BufferSize];
-    const unsigned int format_len = BufferSize;
-
     if (_bVerbose)
     {
-        va_list namelessVars;
-        va_start(namelessVars, pMsg);  // Get the "..." vars
-        vsnprintf(format, format_len, pMsg, namelessVars);
-        va_end(namelessVars);
-
-        if (connectionMode == Direct)
-            NotifyLog(format);
-        else
-            QCoreApplication::postEvent(ConsoleOutput::getInstance(), new ConsoleEvent(MsgType_Log, format));
+        FC_CONSOLE_FMT(Log,Log);
     }
 }
-
 
 /** Delivers the time/date
  *  This method gives you a string with the actual time/date. You can
@@ -386,12 +358,12 @@ const char* ConsoleSingleton::Time(void)
 // Observer stuff
 
 /** Attaches an Observer to Console
- *  Use this method to attach a ConsoleObserver derived class to
+ *  Use this method to attach a ILogger derived class to
  *  the Console. After the observer is attached all messages will also
  *  be forwarded to it.
- *  @see ConsoleObserver
+ *  @see ILogger
  */
-void ConsoleSingleton::AttachObserver(ConsoleObserver *pcObserver)
+void ConsoleSingleton::AttachObserver(ILogger *pcObserver)
 {
     // double insert !!
     assert(_aclObservers.find(pcObserver) == _aclObservers.end() );
@@ -400,51 +372,51 @@ void ConsoleSingleton::AttachObserver(ConsoleObserver *pcObserver)
 }
 
 /** Detaches an Observer from Console
- *  Use this method to detach a ConsoleObserver derived class.
+ *  Use this method to detach a ILogger derived class.
  *  After detaching you can destruct the Observer or reinsert it later.
- *  @see ConsoleObserver
+ *  @see ILogger
  */
-void ConsoleSingleton::DetachObserver(ConsoleObserver *pcObserver)
+void ConsoleSingleton::DetachObserver(ILogger *pcObserver)
 {
     _aclObservers.erase(pcObserver);
 }
 
 void ConsoleSingleton::NotifyMessage(const char *sMsg)
 {
-    for(std::set<ConsoleObserver * >::iterator Iter=_aclObservers.begin();Iter!=_aclObservers.end();++Iter) {
+    for(std::set<ILogger * >::iterator Iter=_aclObservers.begin();Iter!=_aclObservers.end();++Iter) {
         if((*Iter)->bMsg)
-            (*Iter)->Message(sMsg);   // send string to the listener
+            (*Iter)->SendLog(sMsg, LogStyle::Message);   // send string to the listener
     }
 }
 
 void ConsoleSingleton::NotifyWarning(const char *sMsg)
 {
-    for(std::set<ConsoleObserver * >::iterator Iter=_aclObservers.begin();Iter!=_aclObservers.end();++Iter) {
+    for(std::set<ILogger * >::iterator Iter=_aclObservers.begin();Iter!=_aclObservers.end();++Iter) {
         if((*Iter)->bWrn)
-            (*Iter)->Warning(sMsg);   // send string to the listener
+            (*Iter)->SendLog(sMsg, LogStyle::Warning);   // send string to the listener
     }
 }
 
 void ConsoleSingleton::NotifyError(const char *sMsg)
 {
-    for(std::set<ConsoleObserver * >::iterator Iter=_aclObservers.begin();Iter!=_aclObservers.end();++Iter) {
+    for(std::set<ILogger * >::iterator Iter=_aclObservers.begin();Iter!=_aclObservers.end();++Iter) {
         if((*Iter)->bErr)
-            (*Iter)->Error(sMsg);   // send string to the listener
+            (*Iter)->SendLog(sMsg, LogStyle::Error);   // send string to the listener
     }
 }
 
 void ConsoleSingleton::NotifyLog(const char *sMsg)
 {
-    for(std::set<ConsoleObserver * >::iterator Iter=_aclObservers.begin();Iter!=_aclObservers.end();++Iter) {
+    for(std::set<ILogger * >::iterator Iter=_aclObservers.begin();Iter!=_aclObservers.end();++Iter) {
         if((*Iter)->bLog)
-            (*Iter)->Log(sMsg);   // send string to the listener
+            (*Iter)->SendLog(sMsg, LogStyle::Log);   // send string to the listener
     }
 }
 
-ConsoleObserver *ConsoleSingleton::Get(const char *Name) const
+ILogger *ConsoleSingleton::Get(const char *Name) const
 {
     const char* OName;
-    for(std::set<ConsoleObserver * >::const_iterator Iter=_aclObservers.begin();Iter!=_aclObservers.end();++Iter) {
+    for(std::set<ILogger * >::const_iterator Iter=_aclObservers.begin();Iter!=_aclObservers.end();++Iter) {
         OName = (*Iter)->Name();   // get the name
         if(OName && strcmp(OName,Name) == 0)
             return *Iter;
@@ -464,7 +436,7 @@ int *ConsoleSingleton::GetLogLevel(const char *tag, bool create) {
 
 void ConsoleSingleton::Refresh() {
     if(_bCanRefresh)
-        QCoreApplication::sendPostedEvents();
+        qApp->processEvents(QEventLoop::ExcludeUserInputEvents);
 }
 
 void ConsoleSingleton::EnableRefresh(bool enable) {
@@ -708,7 +680,7 @@ PyObject *ConsoleSingleton::sPyGetStatus(PyObject * /*self*/, PyObject *args)
 
     PY_TRY{
         bool b=false;
-        ConsoleObserver *pObs = Instance().Get(pstr1);
+        ILogger *pObs = Instance().Get(pstr1);
         if(!pObs)
         {
             Py_INCREF(Py_None);
@@ -737,7 +709,7 @@ PyObject *ConsoleSingleton::sPySetStatus(PyObject * /*self*/, PyObject *args)
         return NULL;                                              // NULL triggers exception
 
     PY_TRY{
-        ConsoleObserver *pObs = Instance().Get(pstr1);
+        ILogger *pObs = Instance().Get(pstr1);
         if(pObs)
         {
             if(strcmp(pstr2,"Log") == 0)
@@ -763,6 +735,9 @@ PyObject *ConsoleSingleton::sPySetStatus(PyObject * /*self*/, PyObject *args)
 //=========================================================================
 // some special observers
 
+Base::ILogger::~ILogger()
+{}
+
 ConsoleObserverFile::ConsoleObserverFile(const char *sFileName)
   : cFileStream(Base::FileInfo(sFileName)) // can be in UTF8
 {
@@ -778,30 +753,27 @@ ConsoleObserverFile::~ConsoleObserverFile()
     cFileStream.close();
 }
 
-void ConsoleObserverFile::Warning(const char *sWarn)
+void ConsoleObserverFile::SendLog(const std::string& msg, LogStyle level)
 {
-    cFileStream << "Wrn: " << sWarn;
+    std::string prefix;
+    switch(level){
+        case LogStyle::Warning:
+            prefix = "Wrn: ";
+            break;
+        case LogStyle::Message:
+            prefix = "Msg: ";
+            break;
+        case LogStyle::Error:
+            prefix = "Err: ";
+            break;
+        case LogStyle::Log:
+            prefix = "Log: ";
+            break;
+    }
+
+    cFileStream << prefix << msg;
     cFileStream.flush();
 }
-
-void ConsoleObserverFile::Message(const char *sMsg)
-{
-    cFileStream << "Msg: " << sMsg;
-    cFileStream.flush();
-}
-
-void ConsoleObserverFile::Error  (const char *sErr)
-{
-    cFileStream << "Err: " << sErr;
-    cFileStream.flush();
-}
-
-void ConsoleObserverFile::Log    (const char *sLog)
-{
-    cFileStream << "Log: " << sLog;
-    cFileStream.flush();
-}
-
 
 ConsoleObserverStd::ConsoleObserverStd() :
 #   if defined(FC_OS_WIN32)
@@ -817,6 +789,24 @@ ConsoleObserverStd::ConsoleObserverStd() :
 
 ConsoleObserverStd::~ConsoleObserverStd()
 {
+}
+
+void ConsoleObserverStd::SendLog(const std::string& msg, LogStyle level)
+{
+    switch(level){
+        case LogStyle::Warning:
+            this->Warning(msg.c_str());
+            break;
+        case LogStyle::Message:
+            this->Message(msg.c_str());
+            break;
+        case LogStyle::Error:
+            this->Error(msg.c_str());
+            break;
+        case LogStyle::Log:
+            this->Log(msg.c_str());
+            break;
+    }
 }
 
 void ConsoleObserverStd::Message(const char *sMsg)
@@ -902,7 +892,7 @@ int RedirectStdOutput::overflow(int c)
 int RedirectStdOutput::sync()
 {
     // Print as log as this might be verbose
-    if (!buffer.empty()) {
+    if (!buffer.empty() && buffer.back() == '\n') {
         Base::Console().Log("%s", buffer.c_str());
         buffer.clear();
     }
@@ -924,7 +914,7 @@ int RedirectStdLog::overflow(int c)
 int RedirectStdLog::sync()
 {
     // Print as log as this might be verbose
-    if (!buffer.empty()) {
+    if (!buffer.empty() && buffer.back() == '\n') {
         Base::Console().Log("%s", buffer.c_str());
         buffer.clear();
     }
@@ -945,7 +935,7 @@ int RedirectStdError::overflow(int c)
 
 int RedirectStdError::sync()
 {
-    if (!buffer.empty()) {
+    if (!buffer.empty() && buffer.back() == '\n') {
         Base::Console().Error("%s", buffer.c_str());
         buffer.clear();
     }
@@ -968,8 +958,23 @@ std::stringstream &LogLevel::prefix(std::stringstream &str, const char *src, int
         str << d.count() << ' ';
     }
     if(print_tag) str << '<' << tag << "> ";
-    if(print_src) {
+    if(print_src==2) {
+        PyFrameObject* frame = PyEval_GetFrame();
+        if(frame) {
+            line = PyFrame_GetLineNumber(frame);
+#if PY_MAJOR_VERSION >= 3
+            src = PyUnicode_AsUTF8(frame->f_code->co_filename);
+#else
+            src = PyString_AsString(frame->f_code->co_filename);
+#endif
+        }
+    }
+    if(print_src && src && src[0]) {
+#ifdef FC_OS_WIN32
+        const char *_f = std::strrchr(src, '\\');
+#else
         const char *_f = std::strrchr(src, '/');
+#endif
         str << (_f?_f+1:src)<<"("<<line<<"): ";
     }
     return str;

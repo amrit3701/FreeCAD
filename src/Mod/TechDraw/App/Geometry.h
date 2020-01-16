@@ -23,6 +23,10 @@
 #ifndef TECHDRAW_GEOMETRY_H
 #define TECHDRAW_GEOMETRY_H
 
+#include <boost/uuid/uuid.hpp>
+#include <boost/uuid/uuid_io.hpp>
+#include <boost/uuid/uuid_generators.hpp>
+
 #include <Base/Tools2D.h>
 #include <Base/Vector3D.h>
 #include <Base/Reader.h>
@@ -71,13 +75,14 @@ class TechDrawExport BaseGeom
 {
     public:
         BaseGeom();
+        //BaseGeom(BaseGeom* bg);   //do we need a copy constructor too?
         virtual ~BaseGeom() = default;
 
     public:
         GeomType geomType;
         ExtractionType extractType;     //obs
         edgeClass classOfEdge;
-        bool visible;
+        bool hlrVisible;
         bool reversed;
         int ref3D;                      //obs?
         TopoDS_Edge occEdge;            //projected Edge
@@ -86,6 +91,8 @@ class TechDrawExport BaseGeom
         void source(int s) { m_source = s; }
         int sourceIndex(void) { return m_sourceIndex; }
         void sourceIndex(int si) { m_sourceIndex = si; }
+        std::string getCosmeticTag(void) { return cosmeticTag; }
+        void setCosmeticTag(std::string t) { cosmeticTag = t; }
 
         virtual std::string toString(void) const;
 /*        virtual bool fromCSV(std::string s);*/
@@ -100,14 +107,24 @@ class TechDrawExport BaseGeom
         Base::Vector3d nearPoint(Base::Vector3d p);
         Base::Vector3d nearPoint(const BaseGeom* p);
         static BaseGeom* baseFactory(TopoDS_Edge edge);
+        static bool validateEdge(TopoDS_Edge edge);
         bool closed(void);
         BaseGeom* copy();
         std::string dump();
 
-    protected:
+        //Uniqueness
+        boost::uuids::uuid getTag() const;
+        virtual std::string getTagAsString(void) const;
+
+protected:
         int m_source;         //0 - geom, 1 - cosmetic edge, 2 - centerline
         int m_sourceIndex;
+        std::string cosmeticTag;
 
+        void createNewTag();
+/*        void assignTag(const TechDraw::BaseGeom* bg);*/
+
+        boost::uuids::uuid tag;
 };
 
 typedef std::vector<BaseGeom *> BaseGeomPtrVector;        //obs?
@@ -281,15 +298,16 @@ class TechDrawExport Vertex
         Vertex();
         Vertex(const Vertex* v);
         Vertex(double x, double y);
-        Vertex(Base::Vector3d v) : Vertex(v.x,v.y) {}
+        Vertex(Base::Vector3d v);
         virtual ~Vertex() {}
 
         virtual void Save(Base::Writer &/*writer*/) const;
         virtual void Restore(Base::XMLReader &/*reader*/);
+        virtual void dump(const char* title = "");
 
         Base::Vector3d pnt;
         ExtractionType extractType;       //obs?
-        bool visible;
+        bool hlrVisible;                 //visible according to HLR
         int ref3D;                        //obs. never used.
         bool isCenter;
         TopoDS_Vertex occVertex;
@@ -297,10 +315,21 @@ class TechDrawExport Vertex
         Base::Vector3d point(void) const { return Base::Vector3d(pnt.x,pnt.y,0.0); }
         void point(Base::Vector3d v){ pnt = Base::Vector3d(v.x, v.y); }
         bool cosmetic;
-        int cosmeticLink;
+        int cosmeticLink;                 //deprec. use cosmeticTag
+        std::string cosmeticTag;
 
         double x() {return pnt.x;}
         double y() {return pnt.y;}
+
+        boost::uuids::uuid getTag() const;
+        virtual std::string getTagAsString(void) const;
+
+    protected:
+        //Uniqueness
+        void createNewTag();
+        void assignTag(const TechDraw::Vertex* v);
+
+        boost::uuids::uuid tag;
 };
 
 /// Encapsulates some useful static methods

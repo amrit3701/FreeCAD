@@ -96,7 +96,7 @@ public:
     virtual ~ViewProviderExport();
 
     virtual QIcon getIcon() const;
-    SoSeparator* getRoot(void){return 0;}
+    SoSeparator* getRoot(void) const {return nullptr;}
     std::vector<std::string> getDisplayModes(void) const;
     const char* getDefaultDisplayMode() const;
 };
@@ -190,8 +190,9 @@ protected:
     void highlightSegments();
     void setHighlightedSegments(bool);
     App::PropertyColorList* getColorProperty() const;
-    void tryColorPerVertex(bool);
+    void tryColorPerVertexOrFace(bool);
     void setColorPerVertex(const App::PropertyColorList*);
+    void setColorPerFace(const App::PropertyColorList*);
 
     virtual SoShape* getShapeNode() const;
     virtual SoNode* getCoordNode() const;

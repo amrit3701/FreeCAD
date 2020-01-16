@@ -1,5 +1,6 @@
 /***************************************************************************
- *   Copyright (c) WandererFan            (wandererfan@gmail.com) 2016     *
+ *   Copyright (c) 2016 WandererFan <wandererfan@gmail.com>                *
+ *                                                                         *
  *   This file is part of the FreeCAD CAx development system.              *
  *                                                                         *
  *   This library is free software; you can redistribute it and/or         *
@@ -75,6 +76,7 @@ protected:
     Base::Vector3d toR3(const gp_Ax2 fromSystem, const Base::Vector3d fromPoint);
     void getParameters(void);
     double m_fudge;
+    bool debugDetail(void) const;
 
 };
 

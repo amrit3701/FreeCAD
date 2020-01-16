@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Copyright (c) Juergen Riegel         (juergen.riegel@web.de) 2010     *
+ *   Copyright (c) 2010 Jürgen Riegel <juergen.riegel@web.de>              *
  *                                                                         *
  *   This file is part of the FreeCAD CAx development system.              *
  *                                                                         *
@@ -3021,7 +3021,7 @@ bool Sketch::updateGeometry()
                 std::vector<double *>::const_iterator it2;
 
                 for( it1 = mybsp.poles.begin(), it2 = mybsp.weights.begin(); it1 != mybsp.poles.end() && it2 != mybsp.weights.end(); ++it1, ++it2) {
-                    poles.push_back(Vector3d( *(*it1).x , *(*it1).y , 0.0));
+                    poles.emplace_back( *(*it1).x , *(*it1).y , 0.0);
                     weights.push_back(*(*it2));
                 }
 

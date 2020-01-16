@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 #***************************************************************************
-#*                                                                         *
 #*   Copyright (c) 2019 Yorik van Havre <yorik@uncreated.net>              *
 #*                                                                         *
 #*   This program is free software; you can redistribute it and/or modify  *
@@ -111,7 +110,7 @@ import zipfile
 import tempfile
 import inspect
 import binascii
-from pivy import coin
+
 
 
 
@@ -297,11 +296,11 @@ def render(outputfile,scene=None,camera=None,zoom=False,width=400,height=300,bac
     the given coin camera (ortho or perspective). If zoom is True the camera will be resized to fit all
     objects. The outputfile must be a file path to save a png image. Optionally a light direction as a (x,y,z)
     tuple can be given. In this case, a directional light will be added and shadows will
-    be turned on. This might not work with soem 3D drivers."""
+    be turned on. This might not work with some 3D drivers."""
 
     # On Linux, the X server must have indirect rendering enabled in order to be able to do offline
     # PNG rendering. Unfortunately, this is turned off by default on most recent distros. The easiest
-    # way I found is to edit (or create if inexistant) /etc/X11/xorg.conf and add this:
+    # way I found is to edit (or create if inexistent) /etc/X11/xorg.conf and add this:
     #
     # Section "ServerFlags"
     #    Option "AllowIndirectGLX" "on"
@@ -309,6 +308,8 @@ def render(outputfile,scene=None,camera=None,zoom=False,width=400,height=300,bac
     # EndSection
     #
     # But there are other ways, google of GLX indirect rendering
+
+    from pivy import coin
 
     if isinstance(camera,str):
         camera = getCoinCamera(camera)
@@ -360,13 +361,15 @@ def render(outputfile,scene=None,camera=None,zoom=False,width=400,height=300,bac
 def buildScene(objects,colors=None):
 
     """buildScene(objects,colors=None): builds a coin node from a given list of FreeCAD
-    objects. Optional colors argument can be a dicionary of objName:ShapeColorTuple
+    objects. Optional colors argument can be a dictionary of objName:ShapeColorTuple
     or obj:DiffuseColorList pairs."""
+
+    from pivy import coin
 
     root = coin.SoSeparator()
     for o in objects:
         buf = None
-        if o.isDerivedFrom("Part::Feature"):
+        if hasattr(o,'Shape'):
             # writeInventor of shapes needs tessellation values
             buf = o.Shape.writeInventor(2,0.01)
         elif o.isDerivedFrom("Mesh::Feature"):
@@ -409,6 +412,8 @@ def getCoinCamera(camerastring):
 
     """getCoinCamera(camerastring): Returns a coin camera node from a string"""
 
+    from pivy import coin
+
     if camerastring:
         inp = coin.SoInput()
         inp.setBuffer(camerastring)
@@ -428,12 +433,14 @@ def viewer(scene=None,background=(1.0,1.0,1.0),lightdir=None):
     a standalone coin viewer with the contents of the given scene. You can
     give a background color, and optionally a light direction as a (x,y,z)
     tuple. In this case, a directional light will be added and shadows will
-    be turned on. This might not work with soem 3D drivers."""
+    be turned on. This might not work with some 3D drivers."""
 
     # Initialize Coin. This returns a main window to use
+    from pivy import coin
     from pivy import sogui
+
     win = sogui.SoGui.init()
-    if win == None:
+    if win is None:
         print("Unable to create a SoGui window")
         return
 
@@ -814,6 +821,8 @@ def openiv(filename):
 
     """openiv(filename): opens an .iv file and returns a coin node from it"""
 
+    from pivy import coin
+
     f = open(filename,"r")
     buf = f.read()
     f.close()
@@ -827,6 +836,8 @@ def openiv(filename):
 def saveiv(scene,filename):
 
     """saveiv(scene,filename): saves an .iv file with the contents of the given coin node"""
+
+    from pivy import coin
 
     wa=coin.SoWriteAction()
     wa.getOutput().openFile(filename)

@@ -422,7 +422,7 @@ def Execute(op,obj):
 
         start = time.time()
 
-        if inputStateChanged or adaptiveResults == None:
+        if inputStateChanged or adaptiveResults is None:
             a2d = area.Adaptive2d()
             a2d.stepOverFactor = 0.01*obj.StepOver
             a2d.toolDiameter = float(op.tool.Diameter)
@@ -468,7 +468,7 @@ class PathAdaptive(PathOp.ObjectOp):
         '''opFeatures(obj) ... returns the OR'ed list of features used and supported by the operation.
         The default implementation returns "FeatureTool | FeatureDepths | FeatureHeights | FeatureStartPoint"
         Should be overwritten by subclasses.'''
-        return PathOp.FeatureTool | PathOp.FeatureBaseEdges | PathOp.FeatureDepths | PathOp.FeatureFinishDepth | PathOp.FeatureStepDown | PathOp.FeatureHeights | PathOp.FeatureBaseGeometry
+        return PathOp.FeatureTool | PathOp.FeatureBaseEdges | PathOp.FeatureDepths | PathOp.FeatureFinishDepth | PathOp.FeatureStepDown | PathOp.FeatureHeights | PathOp.FeatureBaseGeometry | PathOp.FeatureCoolant 
 
     def initOperation(self, obj):
         '''initOperation(obj) ... implement to create additional properties.

@@ -24,6 +24,7 @@
 #ifndef GUI_TASKVIEW_TaskPrimitiveParameters_H
 #define GUI_TASKVIEW_TaskPrimitiveParameters_H
 
+#include <memory>
 #include <Gui/TaskView/TaskView.h>
 #include <Gui/Selection.h>
 #include <Gui/DocumentObserver.h>
@@ -34,9 +35,6 @@
 #include "TaskDatumParameters.h"
 #include <Mod/PartDesign/App/DatumCS.h>
 #include <Mod/PartDesign/App/FeaturePrimitive.h>
-#include "ui_TaskPrimitiveParameters.h"
-
-class Ui_TaskPrimitiveParameters;
 
 namespace App {
 class Property;
@@ -47,7 +45,7 @@ class ViewProvider;
 }
 
 namespace PartDesignGui { 
-
+class Ui_DlgPrimitives;
 class TaskBoxPrimitives : public Gui::TaskView::TaskBox,
                           public Gui::DocumentObserver
 {
@@ -57,7 +55,7 @@ public:
     TaskBoxPrimitives(ViewProviderPrimitive* vp, QWidget* parent = 0);
     ~TaskBoxPrimitives();
 
-    void setPrimitive(QString name);
+    void setPrimitive(App::DocumentObject *);
 
 public Q_SLOTS:
     void onBoxLengthChanged(double);
@@ -105,7 +103,7 @@ private:
 
 private:
     QWidget* proxy;
-    Ui_DlgPrimitives ui;
+    std::unique_ptr<Ui_DlgPrimitives> ui;
     ViewProviderPrimitive* vp;
 };
 

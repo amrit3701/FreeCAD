@@ -33,6 +33,7 @@
 #include <Base/PyObjectBase.h>
 #include <Base/Console.h>
 #include <Base/Vector3D.h>
+#include <Base/Converter.h>
 #include <Base/VectorPy.h>
 #include <Base/GeometryPyCXX.h>
 #include <Mod/Part/App/TopoShapePy.h>
@@ -85,7 +86,10 @@ public:
             "projectPointsOnMesh(list of points, Mesh, Vector, [float]) -> list of points\n"
         );
         add_varargs_method("wireFromSegment",&Module::wireFromSegment,
-            "Create wire(s) from boundary of segment\n"
+            "Create wire(s) from boundary of a mesh segment\n"
+        );
+        add_varargs_method("wireFromMesh",&Module::wireFromMesh,
+            "Create wire(s) from boundary of a mesh\n"
         );
         add_keyword_method("meshFromShape",&Module::meshFromShape,
             "Create surface mesh from shape\n"
@@ -129,9 +133,9 @@ public:
             "    Deflection (required, float)\n"
             "    MinLength (required, float)\n"
             "    Fineness (required, integer)\n"
-            "    SecondOrder (optional, integral boolean)\n"
-            "    Optimize (optional, integeral boolean)\n"
-            "    AllowQuad (optional, integeral boolean)\n"
+            "    SecondOrder (optional, integer boolean)\n"
+            "    Optimize (optional, integer boolean)\n"
+            "    AllowQuad (optional, integer boolean)\n"
             "    GrowthRate (optional, float)\n"
             "    SegPerEdge (optional, float)\n"
             "    SegPerRadius (optional, float)\n"
@@ -424,6 +428,34 @@ private:
         std::list<std::vector<Base::Vector3f> > bounds;
         MeshCore::MeshAlgorithm algo(mesh->getKernel());
         algo.GetFacetBorders(segm, bounds);
+
+        Py::List wires;
+        std::list<std::vector<Base::Vector3f> >::iterator bt;
+
+        for (bt = bounds.begin(); bt != bounds.end(); ++bt) {
+            BRepBuilderAPI_MakePolygon mkPoly;
+            for (std::vector<Base::Vector3f>::reverse_iterator it = bt->rbegin(); it != bt->rend(); ++it) {
+                mkPoly.Add(gp_Pnt(it->x,it->y,it->z));
+            }
+            if (mkPoly.IsDone()) {
+                PyObject* wire = new Part::TopoShapeWirePy(new Part::TopoShape(mkPoly.Wire()));
+                wires.append(Py::Object(wire, true));
+            }
+        }
+
+        return wires;
+    }
+    Py::Object wireFromMesh(const Py::Tuple& args)
+    {
+        PyObject *m;
+        if (!PyArg_ParseTuple(args.ptr(), "O!", &(Mesh::MeshPy::Type), &m))
+            throw Py::Exception();
+
+        Mesh::MeshObject* mesh = static_cast<Mesh::MeshPy*>(m)->getMeshObjectPtr();
+
+        std::list<std::vector<Base::Vector3f> > bounds;
+        MeshCore::MeshAlgorithm algo(mesh->getKernel());
+        algo.GetMeshBorders(bounds);
 
         Py::List wires;
         std::list<std::vector<Base::Vector3f> >::iterator bt;

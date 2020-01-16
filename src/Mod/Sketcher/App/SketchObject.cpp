@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Copyright (c) Jürgen Riegel          (juergen.riegel@web.de) 2008     *
+ *   Copyright (c) 2008 Jürgen Riegel <juergen.riegel@web.de>              *
  *                                                                         *
  *   This file is part of the FreeCAD CAx development system.              *
  *                                                                         *
@@ -89,6 +89,7 @@
 using namespace Sketcher;
 using namespace Base;
 
+FC_LOG_LEVEL_INIT("Sketch",true,true)
 
 const int GeoEnum::RtPnt  = -1;
 const int GeoEnum::HAxis  = -1;
@@ -176,6 +177,7 @@ App::DocumentObjectExecReturn *SketchObject::execute(void)
     // setup and diagnose the sketch
     try {
         rebuildExternalGeometry();
+        Constraints.acceptGeometry(getCompleteGeometry());
     }
     catch (const Base::Exception& e) {
         Base::Console().Error("%s\nClear constraints to external geometry\n", e.what());
@@ -912,9 +914,7 @@ int SketchObject::delGeometry(int GeoId, bool deleteinternalgeo)
     }
 
     this->Geometry.setValues(newVals);
-    this->Constraints.setValues(newConstraints);
-    for (Constraint* it : newConstraints)
-        delete it;
+    this->Constraints.setValues(std::move(newConstraints));
     this->Constraints.acceptGeometry(getCompleteGeometry());
     rebuildVertexIndex();
 
@@ -5287,7 +5287,7 @@ int SketchObject::addExternal(App::DocumentObject *Obj, const char* SubName)
 
     // add the new ones
     Objects.push_back(Obj);
-    SubElements.push_back(std::string(SubName));
+    SubElements.emplace_back(SubName);
 
     // set the Link list.
     ExternalGeometry.setValues(Objects,SubElements);
@@ -5357,9 +5357,7 @@ int SketchObject::delExternal(int ExtGeoId)
     }
 
     solverNeedsUpdate=true;
-    Constraints.setValues(newConstraints);
-    for (Constraint* it : newConstraints)
-        delete it;
+    Constraints.setValues(std::move(newConstraints));
     Constraints.acceptGeometry(getCompleteGeometry());
     rebuildVertexIndex();
     return 0;
@@ -5429,7 +5427,7 @@ int SketchObject::delConstraintsToExternal()
         }
     }
 
-    Constraints.setValues(newConstraints);
+    Constraints.setValues(std::move(newConstraints));
     Constraints.acceptGeometry(getCompleteGeometry());
 
     if(noRecomputes) // if we do not have a recompute, the sketch must be solved to update the DoF of the solver
@@ -6393,17 +6391,17 @@ std::string SketchObject::validateExpression(const App::ObjectIdentifier &path, 
             return "Reference constraints cannot be set!";
     }
 
-    std::set<App::ObjectIdentifier> deps;
-    expr->getDeps(deps);
+    auto deps = expr->getDeps();
+    auto it = deps.find(this);
+    if(it!=deps.end()) {
+        auto it2 = it->second.find("Constraints");
+        if(it2 != it->second.end()) {
+            for(auto &oid : it2->second) {
+                const Constraint * constraint = Constraints.getConstraint(oid);
 
-    for (std::set<App::ObjectIdentifier>::const_iterator i = deps.begin(); i != deps.end(); ++i) {
-        const App::Property * prop = (*i).getProperty();
-
-        if (prop == &Constraints) {
-            const Constraint * constraint = Constraints.getConstraint(*i);
-
-            if (!constraint->isDriving)
-                return "Reference constraint from this sketch cannot be used in this expression.";
+                if (!constraint->isDriving)
+                    return "Reference constraint from this sketch cannot be used in this expression.";
+            }
         }
     }
     return "";
@@ -6468,7 +6466,7 @@ void SketchObject::constraintsRemoved(const std::set<App::ObjectIdentifier> &rem
     std::set<App::ObjectIdentifier>::const_iterator i = removed.begin();
 
     while (i != removed.end()) {
-        ExpressionEngine.setValue(*i, boost::shared_ptr<App::Expression>(), 0);
+        ExpressionEngine.setValue(*i, boost::shared_ptr<App::Expression>());
         ++i;
     }
 }
@@ -6860,12 +6858,23 @@ bool SketchObject::AutoLockTangencyAndPerpty(Constraint *cstr, bool bForce, bool
     return true;
 }
 
-void SketchObject::setExpression(const App::ObjectIdentifier &path, boost::shared_ptr<App::Expression> expr, const char * comment)
+void SketchObject::setExpression(const App::ObjectIdentifier &path, boost::shared_ptr<App::Expression> expr)
 {
-    DocumentObject::setExpression(path, expr, comment);
+    DocumentObject::setExpression(path, expr);
 
-    if(noRecomputes) // if we do not have a recompute, the sketch must be solved to update the DoF of the solver, constraints and UI
+    if(noRecomputes) {// if we do not have a recompute, the sketch must be solved to update the DoF of the solver, constraints and UI
+        try {
+            auto res = ExpressionEngine.execute();
+            if(res) {
+                FC_ERR("Failed to recompute " << ExpressionEngine.getFullName() << ": " << res->Why);
+                delete res;
+            }
+        } catch (Base::Exception &e) {
+            e.ReportException();
+            FC_ERR("Failed to recompute " << ExpressionEngine.getFullName() << ": " << e.what());
+        }
         solve();
+    }
 }
 
 int SketchObject::autoConstraint(double precision, double angleprecision, bool includeconstruction)

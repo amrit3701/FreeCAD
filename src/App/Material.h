@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Copyright (c) Jürgen Riegel          (juergen.riegel@web.de) 2005     *
+ *   Copyright (c) 2005 Jürgen Riegel <juergen.riegel@web.de>              *
  *                                                                         *
  *   This file is part of the FreeCAD CAx development system.              *
  *                                                                         *
@@ -281,6 +281,18 @@ public:
     float shininess;
     float transparency;
     //@}
+
+    bool operator==(const Material& m) const
+    {
+        return _matType!=m._matType || shininess!=m.shininess ||
+            transparency!=m.transparency || ambientColor!=m.ambientColor ||
+            diffuseColor!=m.diffuseColor || specularColor!=m.specularColor ||
+            emissiveColor!=m.emissiveColor;
+    }
+    bool operator!=(const Material& m) const
+    {
+        return !operator==(m);
+    }
 
 private:
     MaterialType _matType;

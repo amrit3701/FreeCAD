@@ -33,6 +33,7 @@
 
 QT_BEGIN_NAMESPACE
 class QAction;
+class QTimer;
 QT_END_NAMESPACE
 
 namespace TechDraw {
@@ -50,10 +51,14 @@ class QGIView;
 class TechDrawGuiExport MDIViewPage : public Gui::MDIView, public Gui::SelectionObserver
 {
     Q_OBJECT
+    TYPESYSTEM_HEADER();
 
 public:
     MDIViewPage(ViewProviderPage *page, Gui::Document* doc, QWidget* parent = 0);
     virtual ~MDIViewPage();
+
+    void addChildrenToPage(void);
+
 
     /// Observer message from the Tree Selection mechanism
     void onSelectionChanged(const Gui::SelectionChanges& msg);
@@ -66,8 +71,7 @@ public:
 
     void attachTemplate(TechDraw::DrawTemplate *obj);
     void updateTemplate(bool force = false);
-//    void updateDrawing(bool force = false);
-    void updateDrawing(void);
+    void fixOrphans(bool force = false);
     void matchSceneRectToTemplate(void);
     
     bool onMsg(const char* pMsg,const char** ppReturn);
@@ -112,6 +116,7 @@ public Q_SLOTS:
     void toggleKeepUpdated(void);
 //    void testAction(void);
     void sceneSelectionChanged();
+    void onTimer();
 
 protected:
     void findMissingViews( const std::vector<App::DocumentObject*> &list, std::vector<App::DocumentObject*> &missing);
@@ -151,6 +156,7 @@ private:
     std::string m_documentName;
     bool isSelectionBlocked;
     QGVPage *m_view;
+    QTimer *m_timer;
 
     QString m_currentPath;
     QPrinter::Orientation m_orientation;

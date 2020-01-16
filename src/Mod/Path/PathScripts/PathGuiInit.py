@@ -48,6 +48,7 @@ def Startup():
         from PathScripts import PathDressupDogbone
         from PathScripts import PathDressupDragknife
         from PathScripts import PathDressupRampEntry
+        from PathScripts import PathDressupPathBoundaryGui
         from PathScripts import PathDressupTagGui
         from PathScripts import PathDressupLeadInOut
         from PathScripts import PathDrillingGui
@@ -68,15 +69,10 @@ def Startup():
         from PathScripts import PathSimpleCopy
         from PathScripts import PathSimulatorGui
         from PathScripts import PathStop
-        try:
-            import ocl
-            from PathScripts import PathSurfaceGui
-        except ImportError:
-            import FreeCAD
-            FreeCAD.Console.PrintError("OpenCamLib is not working!\n")
         from PathScripts import PathToolController
         from PathScripts import PathToolControllerGui
         from PathScripts import PathToolLibraryManager
+        from PathScripts import PathToolLibraryEditor
         from PathScripts import PathUtilsGui
         Processed = True
     else:

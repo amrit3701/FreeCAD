@@ -202,7 +202,6 @@ void DrawGuiUtil::dumpPointF(const char* text, const QPointF& p)
     Base::Console().Message("Point: (%.3f, %.3f)\n",p.x(),p.y());
 }
 
-
 std::pair<Base::Vector3d,Base::Vector3d> DrawGuiUtil::get3DDirAndRot()
 {
     std::pair<Base::Vector3d,Base::Vector3d> result;
@@ -228,16 +227,17 @@ std::pair<Base::Vector3d,Base::Vector3d> DrawGuiUtil::get3DDirAndRot()
     SbVec3f upvec = viewer->getUpDirection();
 
     viewDir = Base::Vector3d(dvec[0], dvec[1], dvec[2]);
+    viewDir = viewDir * (-1.0);        // Inventor dir is opposite TD projection dir
     viewUp  = Base::Vector3d(upvec[0],upvec[1],upvec[2]);
-    Base::Vector3d dirXup = viewDir.Cross(viewUp);          //dir X up should give local Right
 
-    viewDir = viewDir * (-1.0);     // Inventor dir is opposite TD projection dir
+//    Base::Vector3d dirXup = viewDir.Cross(viewUp);
+    Base::Vector3d right = viewUp.Cross(viewDir);
 
-    result = std::make_pair(viewDir,dirXup);
+    result = std::make_pair(viewDir,right);
     return result;
 }
 
-std::pair<Base::Vector3d,Base::Vector3d> DrawGuiUtil::getProjDirFromFace(Part::Feature* obj, std::string faceName)
+std::pair<Base::Vector3d,Base::Vector3d> DrawGuiUtil::getProjDirFromFace(App::DocumentObject* obj, std::string faceName)
 {
     std::pair<Base::Vector3d,Base::Vector3d> d3Dirs = get3DDirAndRot();
     Base::Vector3d d3Up = (d3Dirs.first).Cross(d3Dirs.second);
@@ -248,15 +248,13 @@ std::pair<Base::Vector3d,Base::Vector3d> DrawGuiUtil::getProjDirFromFace(Part::F
     projDir = d3Dirs.first;
     rotVec = d3Dirs.second;
 
-    if (DrawUtil::getGeomTypeFromName(faceName) != "Face") {
+    auto ts = Part::Feature::getShape(obj,faceName.c_str(),true);
+    if(ts.IsNull() || ts.ShapeType()!=TopAbs_FACE) {
         Base::Console().Warning("getProjDirFromFace(%s) is not a Face\n",faceName.c_str());
         return dirs;
     }
-    Part::TopoShape ts = obj->Shape.getShape();
-    ts.setPlacement(obj->globalPlacement());
-    TopoDS_Shape subShape = ts.getSubShape(faceName.c_str());
 
-    const TopoDS_Face& face = TopoDS::Face(subShape);
+    const TopoDS_Face& face = TopoDS::Face(ts);
     TopAbs_Orientation orient = face.Orientation();
     BRepAdaptor_Surface adapt(face);
     

@@ -38,13 +38,8 @@ __doc__ = "Functions to extract and convert between Path.Command and Part.Edge a
 
 Tolerance = 0.000001
 
-LOGLEVEL = False
-
-if LOGLEVEL:
-    PathLog.setLevel(PathLog.Level.DEBUG, PathLog.thisModule())
-    PathLog.trackModule(PathLog.thisModule())
-else:
-    PathLog.setLevel(PathLog.Level.INFO, PathLog.thisModule())
+PathLog.setLevel(PathLog.Level.INFO, PathLog.thisModule())
+#PathLog.trackModule(PathLog.thisModule())
 
 # Qt translation handling
 def translate(context, text, disambig=None):
@@ -87,6 +82,7 @@ CmdMoveCW       = ['G2', 'G02']
 CmdMoveCCW      = ['G3', 'G03']
 CmdMoveArc      = CmdMoveCW + CmdMoveCCW
 CmdMove         = CmdMoveStraight + CmdMoveArc
+CmdMoveAll      = CmdMove + CmdMoveRapid
 
 def isRoughly(float1, float2, error=Tolerance):
     """isRoughly(float1, float2, [error=Tolerance])
@@ -254,7 +250,7 @@ def cmdsForEdge(edge, flip = False, useHelixForBSpline = True, segm = 50, hSpeed
         p2 = edge.valueAt((edge.FirstParameter + edge.LastParameter)/2)
         p3 = pt
 
-        if (type(edge.Curve) == Part.Circle and isRoughly(edge.Curve.Axis.x, 0) and isRoughly(edge.Curve.Axis.y, 0)) or (useHelixForBSpline and type(edge.Curve) == Part.BSplineCurve):
+        if hasattr(edge.Curve, 'Axis') and ((type(edge.Curve) == Part.Circle and isRoughly(edge.Curve.Axis.x, 0) and isRoughly(edge.Curve.Axis.y, 0)) or (useHelixForBSpline and type(edge.Curve) == Part.BSplineCurve)):
             # This is an arc or a helix and it should be represented by a simple G2/G3 command
             if edge.Curve.Axis.z < 0:
                 cmd = 'G2' if not flip else 'G3'
@@ -381,6 +377,8 @@ def wireForPath(path, startPoint = Vector(0, 0, 0)):
                     rapid.append(edge)
                 edges.append(edge)
                 startPoint = commandEndPoint(cmd, startPoint)
+    if not edges:
+        return (None, rapid)
     return (Part.Wire(edges), rapid)
 
 def wiresForPath(path, startPoint = Vector(0, 0, 0)):
@@ -520,8 +518,11 @@ def flipEdge(edge):
         # Now the edge always starts at 0 and LastParameter is the value range
         arc = Part.Edge(circle, 0, edge.LastParameter - edge.FirstParameter)
         return arc
-    elif Part.BSplineCurve == type(edge.Curve):
-        spline = edge.Curve
+    elif type(edge.Curve) in [Part.BSplineCurve, Part.BezierCurve]:
+        if type(edge.Curve) == Part.BSplineCurve:
+            spline = edge.Curve
+        else:
+            spline = edge.Curve.toBSpline()
 
         mults = spline.getMultiplicities()
         weights = spline.getWeights()
@@ -553,4 +554,6 @@ def flipWire(wire):
     '''Flip the entire wire and all its edges so it is being processed the other way around.'''
     edges = [flipEdge(e) for e in wire.Edges]
     edges.reverse()
+    PathLog.debug(edges)
     return Part.Wire(edges)
+

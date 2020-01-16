@@ -120,11 +120,11 @@ private:
 };
 
 /** Output window to show messages.
- * @see Base::ConsoleObserver
+ * @see Base::ILogger
  * @see QTextEdit
  * \author Werner Mayer
  */
-class GuiExport ReportOutput : public QTextEdit, public WindowParameter, public Base::ConsoleObserver
+class GuiExport ReportOutput : public QTextEdit, public WindowParameter, public Base::ILogger
 {
     Q_OBJECT
 
@@ -133,19 +133,12 @@ public:
     virtual ~ReportOutput();
 
     /** Observes its parameter group. */
-    void OnChange(Base::Subject<const char*> &rCaller, const char * sReason);
+    void OnChange(Base::Subject<const char*> &rCaller, const char * sReason) override;
 
-    /** Writes warnings */
-    void Warning(const char * s);
-    /** Writes normal text */
-    void Message(const char * s);
-    /** Writes errors */
-    void Error  (const char * s);
-    /** Does not do anything */
-    void Log (const char * s);
+    void SendLog(const std::string& msg, Base::LogStyle level) override;
 
     /// returns the name for observer handling
-    const char* Name(void){return "ReportOutput";}
+    const char* Name(void) override {return "ReportOutput";}
 
     /** Restore the default font settings. */
     void restoreFont ();
@@ -159,11 +152,11 @@ public:
 
 protected:
     /** For internal use only */
-    void customEvent ( QEvent* ev );
+    void customEvent ( QEvent* ev ) override;
     /** Handles the change of style sheets */
-    void changeEvent(QEvent *);
+    void changeEvent(QEvent *) override;
     /** Pops up the context menu with some extensions */
-    void contextMenuEvent ( QContextMenuEvent* e );
+    void contextMenuEvent ( QContextMenuEvent* e ) override;
 
 public Q_SLOTS:
     /** Save the report messages into a file. */
@@ -188,6 +181,7 @@ private:
     Data* d;
     bool gotoEnd;
     ReportHighlighter* reportHl; /**< Syntax highlighter */
+    int messageSize;
     ParameterGrp::handle _prefs; 
 };
 

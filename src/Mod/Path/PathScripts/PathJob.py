@@ -37,13 +37,8 @@ import json
 from PathScripts.PathPostProcessor import PostProcessor
 from PySide import QtCore
 
-LOGLEVEL = False
-
-if LOGLEVEL:
-    PathLog.setLevel(PathLog.Level.DEBUG, PathLog.thisModule())
-    PathLog.trackModule(PathLog.thisModule())
-else:
-    PathLog.setLevel(PathLog.Level.INFO, PathLog.thisModule())
+PathLog.setLevel(PathLog.Level.INFO, PathLog.thisModule())
+#PathLog.trackModule(PathLog.thisModule())
 
 
 # Qt translation handling
@@ -85,6 +80,7 @@ def createResourceClone(obj, orig, name, icon):
     if clone.ViewObject:
         PathIconViewProvider.Attach(clone.ViewObject, icon)
         clone.ViewObject.Visibility = False
+        clone.ViewObject.Transparency = 80
     obj.Document.recompute() # necessary to create the clone shape
     return clone
 
@@ -221,6 +217,7 @@ class ObjectJob:
         PathLog.debug('taking down tool controller')
         for tc in obj.ToolController:
             PathUtil.clearExpressionEngine(tc)
+            tc.Proxy.onDelete(tc)
             doc.removeObject(tc.Name)
         obj.ToolController = []
         # SetupSheet
@@ -343,12 +340,14 @@ class ObjectJob:
     def execute(self, obj):
         obj.Path = obj.Operations.Path
 
-    def addOperation(self, op, before = None):
+    def addOperation(self, op, before = None, removeBefore = False):
         group = self.obj.Operations.Group
         if op not in group:
             if before:
                 try:
                     group.insert(group.index(before), op)
+                    if removeBefore:
+                        group.remove(before)
                 except Exception as e: # pylint: disable=broad-except
                     PathLog.error(e)
                     group.append(op)

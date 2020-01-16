@@ -92,6 +92,9 @@
         </item>
         <item row="1" column="4">
          <widget class="Gui::PrefSpinBox" name="spinLineTransparency">
+          <property name="suffix">
+           <string>%</string>
+          </property>
           <property name="maximum">
            <number>100</number>
           </property>
@@ -112,6 +115,9 @@
         </item>
         <item row="0" column="4">
          <widget class="Gui::PrefSpinBox" name="spinMeshTransparency">
+          <property name="suffix">
+           <string>%</string>
+          </property>
           <property name="maximum">
            <number>100</number>
           </property>
@@ -139,7 +145,7 @@
         <item row="3" column="1" colspan="4">
          <widget class="Gui::PrefCheckBox" name="checkboxBoundbox">
           <property name="toolTip">
-           <string>A yellow bounding box will be displayed</string>
+           <string>A bounding box will be displayed</string>
           </property>
           <property name="text">
            <string>Show bounding-box for highlighted or selected meshes</string>

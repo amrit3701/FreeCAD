@@ -51,9 +51,13 @@
 # pragma clang diagnostic push
 # pragma clang diagnostic ignored "-Wmismatched-tags"
 # pragma clang diagnostic ignored "-Wunused-parameter"
+# if __clang_major__ > 3
+# pragma clang diagnostic ignored "-Wkeyword-macro"
+# endif
 #elif defined (__GNUC__)
 # pragma GCC diagnostic push
 # pragma GCC diagnostic ignored "-Wunused-parameter"
+# pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #endif
 
 #ifdef HAVE_SHIBOKEN
@@ -402,6 +406,23 @@ Py::Object PythonWrapper::fromQIcon(const QIcon* icon)
     throw Py::RuntimeError("Failed to wrap icon");
 }
 
+QIcon *PythonWrapper::toQIcon(PyObject *pyobj)
+{
+#if defined (HAVE_SHIBOKEN) && defined(HAVE_PYSIDE)
+    PyTypeObject * type = getPyTypeObjectForTypeName<QIcon>();
+    if(type) {
+        if (Shiboken::Object::checkType(pyobj)) {
+            SbkObject* sbkobject = reinterpret_cast<SbkObject *>(pyobj);
+            void* cppobject = Shiboken::Object::cppPointer(sbkobject, type);
+            return reinterpret_cast<QIcon*>(cppobject);
+        }
+    }
+#else
+    Q_UNUSED(pyobj);
+#endif
+    return 0;
+}
+
 Py::Object PythonWrapper::fromQWidget(QWidget* widget, const char* className)
 {
 #if defined (HAVE_SHIBOKEN) && defined(HAVE_PYSIDE)
@@ -737,7 +758,7 @@ Py::Object PySideUicModule::loadUiType(const Py::Tuple& args)
     QString cmd;
     QTextStream str(&cmd);
     // https://github.com/albop/dolo/blob/master/bin/load_ui.py
-#if defined(HAVE_PYSIDE2)
+#if QT_VERSION >= 0x050000
     str << "import pyside2uic\n"
         << "from PySide2 import QtCore, QtGui, QtWidgets\n"
         << "import xml.etree.ElementTree as xml\n"
@@ -839,7 +860,7 @@ Py::Object PySideUicModule::loadUi(const Py::Tuple& args)
         << "loader = UiLoader(globals()[\"base_\"])\n"
         << "widget = loader.load(globals()[\"uiFile_\"])\n"
         << "\n";
-#elif defined(HAVE_PYSIDE2)
+#elif QT_VERSION >= 0x050000
     str << "from PySide2 import QtCore, QtGui, QtWidgets\n"
         << "import FreeCADGui"
         << "\n"

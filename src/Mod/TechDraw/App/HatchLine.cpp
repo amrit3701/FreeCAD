@@ -284,7 +284,7 @@ std::vector<double> PATLineSpec::split(std::string line)
     return result;
 }
 
-void PATLineSpec::dump(char* title)
+void PATLineSpec::dump(const char* title)
 {
     Base::Console().Message( "DUMP: %s\n",title);
     Base::Console().Message( "Angle: %.3f\n", m_angle);
@@ -343,7 +343,7 @@ bool  PATLineSpec::findPatternStart(std::ifstream& inFile, std::string& parmName
              (line.empty()) )  {           //is cr/lf empty?
              continue;
          } else if (nameTag == "*") {
-             commaPos = line.find(",",1);
+             commaPos = line.find(',',1);
              if (commaPos != std::string::npos) {
                   patternName = line.substr(1,commaPos-1);
              } else {
@@ -396,7 +396,7 @@ std::vector<std::string> PATLineSpec::getPatternList(std::string& parmFile)
         std::string nameTag = line.substr(0,1);               //dupl code here
         unsigned long int commaPos;
         if (nameTag == "*") {  //found a pattern
-            commaPos = line.find(",",1);
+            commaPos = line.find(',',1);
             std::string patternName;
             if (commaPos != std::string::npos) {
                  patternName = line.substr(1,commaPos-1);
@@ -475,7 +475,7 @@ DashSpec DashSpec::reversed(void)
     return result;
 }
 
-void DashSpec::dump(char* title)
+void DashSpec::dump(const char* title)
 {
     std::stringstream ss;
     ss << title << ": " ;

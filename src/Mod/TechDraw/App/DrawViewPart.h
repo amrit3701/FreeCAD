@@ -1,7 +1,7 @@
 /***************************************************************************
- *   Copyright (c) Jürgen Riegel          (juergen.riegel@web.de) 2007     *
- *   Copyright (c) Luke Parry             (l.parry@warwick.ac.uk) 2013     *
- *   Copyright (c) WandererFan            (wandererfan@gmail.com) 2016     *
+ *   Copyright (c) 2007 Jürgen Riegel <juergen.riegel@web.de>              *
+ *   Copyright (c) 2013 Luke Parry <l.parry@warwick.ac.uk>                 *
+ *   Copyright (c) 2016 WandererFan <wandererfan@gmail.com>                *
  *                                                                         *
  *   This file is part of the FreeCAD CAx development system.              *
  *                                                                         *
@@ -41,6 +41,7 @@
 #include "PropertyCenterLineList.h"
 #include "PropertyCosmeticEdgeList.h"
 #include "PropertyCosmeticVertexList.h"
+#include "CosmeticExtension.h"
 #include "DrawView.h"
 
 class gp_Pnt;
@@ -83,9 +84,9 @@ namespace TechDraw
 
 class DrawViewSection;
 
-class TechDrawExport DrawViewPart : public DrawView
+class TechDrawExport DrawViewPart : public DrawView, public CosmeticExtension
 {
-    PROPERTY_HEADER(TechDraw::DrawViewPart);
+    PROPERTY_HEADER_WITH_EXTENSIONS(TechDraw::DrawViewPart);
 
 public:
     DrawViewPart(void);
@@ -93,6 +94,7 @@ public:
 
     App::PropertyLinkList     Source;
     App::PropertyVector       Direction;  //TODO: Rename to YAxisDirection or whatever this actually is  (ProjectionDirection)
+    App::PropertyVector       XDirection;
     App::PropertyBool         Perspective;
     App::PropertyDistance     Focus;
 
@@ -109,25 +111,20 @@ public:
     App::PropertyBool   IsoHidden;
     App::PropertyInteger  IsoCount;
 
-    TechDraw::PropertyCosmeticVertexList CosmeticVertexes;
-    TechDraw::PropertyCosmeticEdgeList CosmeticEdges;
-    TechDraw::PropertyCenterLineList  CenterLines;
-    TechDraw::PropertyGeomFormatList  GeomFormats;
-
-    virtual short mustExecute() const;
+    virtual short mustExecute() const override;
     virtual void onDocumentRestored() override;
-    virtual App::DocumentObjectExecReturn *execute(void);
-    virtual const char* getViewProviderName(void) const {
+    virtual App::DocumentObjectExecReturn *execute(void) override;
+    virtual const char* getViewProviderName(void) const override {
         return "TechDrawGui::ViewProviderViewPart";
     }
-    virtual PyObject *getPyObject(void);
+    virtual PyObject *getPyObject(void) override;
 
     std::vector<TechDraw::DrawHatch*> getHatches(void) const;
     std::vector<TechDraw::DrawGeomHatch*> getGeomHatches(void) const;
     std::vector<TechDraw::DrawViewDimension*> getDimensions() const;
     std::vector<TechDraw::DrawViewBalloon*> getBalloons() const;
 
-    const std::vector<TechDraw::Vertex *> & getVertexGeometry() const;
+    const std::vector<TechDraw::Vertex *> getVertexGeometry() const;
     const std::vector<TechDraw::BaseGeom  *> & getEdgeGeometry() const;
     const std::vector<TechDraw::BaseGeom  *> getVisibleFaceEdges() const;
     const std::vector<TechDraw::Face *> & getFaceGeometry() const;
@@ -137,95 +134,87 @@ public:
 
     TechDraw::BaseGeom* getGeomByIndex(int idx) const;               //get existing geom for edge idx in projection
     TechDraw::Vertex* getProjVertexByIndex(int idx) const;           //get existing geom for vertex idx in projection
+    TechDraw::Vertex* getProjVertexByCosTag(std::string cosTag);
     std::vector<TechDraw::BaseGeom*> getFaceEdgesByIndex(int idx) const;  //get edges for face idx in projection
 
     virtual Base::BoundBox3d getBoundingBox() const;
     double getBoxX(void) const;
     double getBoxY(void) const;
-    virtual QRectF getRect() const;
-    virtual std::vector<DrawViewSection*> getSectionRefs() const;                    //are there ViewSections based on this ViewPart?
+    virtual QRectF getRect() const override;
+    virtual std::vector<DrawViewSection*> getSectionRefs() const;       //are there ViewSections based on this ViewPart?
     virtual std::vector<DrawViewDetail*> getDetailRefs() const;
-    const Base::Vector3d& getUDir(void) const {return uDir;}                       //paperspace X
-    const Base::Vector3d& getVDir(void) const {return vDir;}                       //paperspace Y
-    const Base::Vector3d& getWDir(void) const {return wDir;}                       //paperspace Z
-    virtual const Base::Vector3d& getCentroid(void) const {return shapeCentroid;}
-    Base::Vector3d projectPoint(const Base::Vector3d& pt) const;
+
+
+    virtual Base::Vector3d projectPoint(const Base::Vector3d& pt) const;
     virtual gp_Ax2 getViewAxis(const Base::Vector3d& pt,
                                const Base::Vector3d& direction,
                                const bool flip=true) const;
+    virtual gp_Ax2 getProjectionCS(Base::Vector3d pt) const;
+    virtual Base::Vector3d getXDirection(void) const;       //don't use XDirection.getValue()
+    virtual Base::Vector3d getOriginalCentroid(void) const;
+    virtual Base::Vector3d getLegacyX(const Base::Vector3d& pt,
+                                      const Base::Vector3d& axis,
+                                      const bool flip = true)  const;
+
 
     bool handleFaces(void);
     bool showSectionEdges(void);
 
     bool isUnsetting(void) { return nowUnsetting; }
     
-    gp_Pln getProjPlane(void) const;
     virtual std::vector<TopoDS_Wire> getWireForFace(int idx) const;
+
     virtual TopoDS_Shape getSourceShape(void) const; 
-    virtual std::vector<TopoDS_Shape> getShapesFromObject(App::DocumentObject* docObj) const; 
     virtual TopoDS_Shape getSourceShapeFused(void) const; 
+
     bool isIso(void) const;
 
-    virtual int addCosmeticVertex(Base::Vector3d pos);
-    virtual int addCosmeticVertex(CosmeticVertex* cv);
-    virtual void removeCosmeticVertex(TechDraw::CosmeticVertex* cv);
-    virtual void removeCosmeticVertex(int idx);
-    void replaceCosmeticVertex(int idx, TechDraw::CosmeticVertex* cv);
-    void replaceCosmeticVertexByGeom(int geomIndex, TechDraw::CosmeticVertex* cl);
-    TechDraw::CosmeticVertex* getCosmeticVertexByIndex(int idx) const;
-    TechDraw::CosmeticVertex* getCosmeticVertexByGeom(int idx) const;
     void clearCosmeticVertexes(void); 
+    void refreshCVGeoms(void);
     void addCosmeticVertexesToGeom(void);
+    int add1CVToGV(std::string tag);
 
-    virtual int addCosmeticEdge(Base::Vector3d start, Base::Vector3d end);
-    virtual int addCosmeticEdge(TopoDS_Edge e);
-    virtual int addCosmeticEdge(TechDraw::CosmeticEdge*);
-    virtual void removeCosmeticEdge(TechDraw::CosmeticEdge* ce);
-    virtual void removeCosmeticEdge(int idx);
-    TechDraw::CosmeticEdge* getCosmeticEdgeByIndex(int idx) const;
-    TechDraw::CosmeticEdge* getCosmeticEdgeByGeom(int idx) const;
-    int getCosmeticEdgeIndex(TechDraw::CosmeticEdge* ce) const;
-    void replaceCosmeticEdge(int idx, TechDraw::CosmeticEdge* ce);
-    void replaceCosmeticEdgeByGeom(int geomIndex, TechDraw::CosmeticEdge* ce);
-    void clearCosmeticEdges(void);
+    void clearCosmeticEdges(void); 
+    void refreshCEGeoms(void);
     void addCosmeticEdgesToGeom(void);
+    int add1CEToGE(std::string tag);
 
-    virtual int addCenterLine(TechDraw::CenterLine*);
-    virtual void removeCenterLine(TechDraw::CenterLine* cl);
-    virtual void removeCenterLine(int idx);
-    TechDraw::CenterLine* getCenterLineByIndex(int idx) const;
-    TechDraw::CenterLine* getCenterLineByGeom(int idx) const;
-    void replaceCenterLine(int idx, TechDraw::CenterLine* cl);
-    void replaceCenterLineByGeom(int geomIndex, TechDraw::CenterLine* cl);
-    void clearCenterLines(void);
+    void clearCenterLines(void); 
+    void refreshCLGeoms(void);
     void addCenterLinesToGeom(void);
+    int add1CLToGE(std::string tag);
 
-    int addGeomFormat(TechDraw::GeomFormat* gf);
-    virtual void removeGeomFormat(int idx);
-    TechDraw::GeomFormat* getGeomFormatByIndex(int idx) const;
-    TechDraw::GeomFormat* getGeomFormatByGeom(int idx) const;
     void clearGeomFormats(void);
 
+    void dumpVerts(const std::string text);
+    void dumpCosVerts(const std::string text);
+    void dumpCosEdges(const std::string text);
+
 protected:
+    bool checkXDirection(void) const;
+
     TechDraw::GeometryObject *geometryObject;
     Base::BoundBox3d bbox;
 
-    void onChanged(const App::Property* prop);
-    virtual void unsetupObject();
+    virtual void onChanged(const App::Property* prop) override;
+    virtual void unsetupObject() override;
 
-    virtual TechDraw::GeometryObject*  buildGeometryObject(TopoDS_Shape shape, gp_Ax2 viewAxis);
+    virtual TechDraw::GeometryObject*  buildGeometryObject(TopoDS_Shape shape, gp_Ax2 viewAxis); //const??
+    virtual TechDraw::GeometryObject*  makeGeometryForShape(TopoDS_Shape shape);   //const??
+
     void extractFaces();
 
-    //Projection parameter space
-    virtual void saveParamSpace(const Base::Vector3d& direction, const Base::Vector3d& xAxis=Base::Vector3d(0.0,0.0,0.0));
-    Base::Vector3d uDir;                       //paperspace X
-    Base::Vector3d vDir;                       //paperspace Y
-    Base::Vector3d wDir;                       //paperspace Z
     Base::Vector3d shapeCentroid;
     void getRunControl(void);
     
     bool m_sectionEdges;
     bool m_handleFaces;
+
+    TopoDS_Shape m_saveShape;    //TODO: make this a Property.  Part::TopoShapeProperty??
+    Base::Vector3d m_saveCentroid;   //centroid before centering shape in origin
+
+    void handleChangedPropertyName(Base::XMLReader &reader, const char* TypeName, const char* PropName) override;
+
 
 private:
     bool nowUnsetting;

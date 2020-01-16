@@ -1,8 +1,8 @@
 # ***************************************************************************
 # *                                                                         *
-# *   Copyright (c) 2013 - Joachim Zettler                                  *
-# *   Copyright (c) 2013 - Juergen Riegel <FreeCAD@juergen-riegel.net>      *
-# *   Copyright (c) 2016 - Bernd Hahnebach <bernd@bimstatik.org>            *
+# *   Copyright (c) 2013 Joachim Zettler                                    *
+# *   Copyright (c) 2013 Juergen Riegel <FreeCAD@juergen-riegel.net>        *
+# *   Copyright (c) 2016 Bernd Hahnebach <bernd@bimstatik.org>              *
 # *                                                                         *
 # *   This program is free software; you can redistribute it and/or modify  *
 # *   it under the terms of the GNU Lesser General Public License (LGPL)    *
@@ -31,14 +31,15 @@ __url__ = "http://www.freecadweb.org"
 #  \brief FreeCAD Calculix FRD Reader for FEM workbench
 
 import FreeCAD
+from FreeCAD import Console
 import os
 
 
 # ********* generic FreeCAD import and export methods *********
-if open.__module__ == '__builtin__':
+if open.__module__ == "__builtin__":
     # because we'll redefine open below (Python2)
     pyopen = open
-elif open.__module__ == 'io':
+elif open.__module__ == "io":
     # because we'll redefine open below (Python3)
     pyopen = open
 
@@ -66,60 +67,63 @@ def insert(
 def importFrd(
     filename,
     analysis=None,
-    result_name_prefix=None
+    result_name_prefix=""
 ):
     from . import importToolsFem
     import ObjectsFem
-    if result_name_prefix is None:
-        result_name_prefix = ''
+
+    if analysis:
+        doc = analysis.Document
+    else:
+        doc = FreeCAD.ActiveDocument
+
     m = read_frd_result(filename)
     result_mesh_object = None
-    if len(m['Nodes']) > 0:
-        if analysis:
-            analysis_object = analysis
+    res_obj = None
 
+    if len(m["Nodes"]) > 0:
         mesh = importToolsFem.make_femmesh(m)
         result_mesh_object = ObjectsFem.makeMeshResult(
-            FreeCAD.ActiveDocument,
-            'ResultMesh'
+            doc,
+            "ResultMesh"
         )
         result_mesh_object.FemMesh = mesh
         res_mesh_is_compacted = False
         nodenumbers_for_compacted_mesh = []
 
-        number_of_increments = len(m['Results'])
-        FreeCAD.Console.PrintLog(
-            'Increments: ' + str(number_of_increments) + '\n'
+        number_of_increments = len(m["Results"])
+        Console.PrintLog(
+            "Increments: " + str(number_of_increments) + "\n"
         )
-        if len(m['Results']) > 0:
-            for result_set in m['Results']:
-                if 'number' in result_set:
-                    eigenmode_number = result_set['number']
+        if len(m["Results"]) > 0:
+            for result_set in m["Results"]:
+                if "number" in result_set:
+                    eigenmode_number = result_set["number"]
                 else:
                     eigenmode_number = 0
-                step_time = result_set['time']
+                step_time = result_set["time"]
                 step_time = round(step_time, 2)
                 if eigenmode_number > 0:
                     results_name = (
-                        '{}Mode{}_Results'
+                        "{}Mode{}_Results"
                         .format(result_name_prefix, eigenmode_number)
                     )
                 elif number_of_increments > 1:
                     results_name = (
-                        '{}Time{}_Results'
+                        "{}Time{}_Results"
                         .format(result_name_prefix, step_time)
                     )
                 else:
                     results_name = (
-                        '{}Results'
+                        "{}Results"
                         .format(result_name_prefix)
                     )
 
-                res_obj = ObjectsFem.makeResultMechanical(FreeCAD.ActiveDocument, results_name)
+                res_obj = ObjectsFem.makeResultMechanical(doc, results_name)
                 res_obj.Mesh = result_mesh_object
                 res_obj = importToolsFem.fill_femresult_mechanical(res_obj, result_set)
                 if analysis:
-                    analysis_object.addObject(res_obj)
+                    analysis.addObject(res_obj)
 
                 # complementary result object calculations
                 import femresult.resulttools as restools
@@ -152,8 +156,8 @@ def importFrd(
                 if res_obj.getParentGroup():
                     has_reinforced_mat = False
                     for obj in res_obj.getParentGroup().Group:
-                        if obj.isDerivedFrom('App::MaterialObjectPython') \
-                                and femutils.is_of_type(obj, 'Fem::MaterialReinforced'):
+                        if obj.isDerivedFrom("App::MaterialObjectPython") \
+                                and femutils.is_of_type(obj, "Fem::MaterialReinforced"):
                             has_reinforced_mat = True
                             restools.add_principal_stress_reinforced(res_obj)
                             break
@@ -169,26 +173,43 @@ def importFrd(
 
         else:
             error_message = (
-                "We have nodes but no results in frd file, "
-                "which means we only have a mesh in frd file. "
-                "Usually this happens for analysis type 'NOANALYSIS' "
-                "or if CalculiX returned no results because "
-                "of nonpositive jacobian determinant in at least one element.\n"
+                "Nodes, but no results found in frd file. "
+                "It means there only is a mesh but no results in frd file. "
+                "Usually this happens for: \n"
+                "- analysis type 'NOANALYSIS'\n"
+                "- if CalculiX returned no results "
+                "(happens on nonpositive jacobian determinant in at least one element)\n"
+                "- just no frd results where requestet in input file "
+                "(neither 'node file' nor 'el file' in output section')\n"
             )
-            FreeCAD.Console.PrintMessage(error_message)
+            Console.PrintMessage(error_message)
+
+        # create a result obj, even if we have no results but a result mesh in frd file
+        # see error message above for more information
+        if not res_obj:
+            if result_name_prefix:
+                results_name = ("{}_Results".format(result_name_prefix))
+            else:
+                results_name = ("Results".format(result_name_prefix))
+            res_obj = ObjectsFem.makeResultMechanical(doc, results_name)
+            res_obj.Mesh = result_mesh_object
+            # TODO, node numbers in result obj could be set
             if analysis:
-                analysis_object.addObject(result_mesh_object)
+                analysis.addObject(res_obj)
 
         if FreeCAD.GuiUp:
             if analysis:
                 import FemGui
-                FemGui.setActiveAnalysis(analysis_object)
-            FreeCAD.ActiveDocument.recompute()
+                FemGui.setActiveAnalysis(analysis)
+            doc.recompute()
 
     else:
-        FreeCAD.Console.PrintError(
-            'Problem on frd file import. No nodes found in frd file.\n'
+        Console.PrintError(
+            "Problem on frd file import. No nodes found in frd file.\n"
         )
+        # None will be returned
+        # or would it be better to raise an exception if there are not even nodes in frd file
+
     return res_obj
 
 
@@ -197,21 +218,23 @@ def importFrd(
 def read_frd_result(
     frd_input
 ):
-    FreeCAD.Console.PrintMessage(
-        'Read ccx results from frd file: {}\n'
+    Console.PrintMessage(
+        "Read ccx results from frd file: {}\n"
         .format(frd_input)
     )
     inout_nodes = []
-    inout_nodes_file = frd_input.rsplit('.', 1)[0] + '_inout_nodes.txt'
+    inout_nodes_file = frd_input.rsplit(".", 1)[0] + "_inout_nodes.txt"
     if os.path.exists(inout_nodes_file):
-        print('Read special 1DFlow nodes data form: ' + inout_nodes_file)
+        Console.PrintMessage(
+            "Read special 1DFlow nodes data form: {}\n".format(inout_nodes_file)
+        )
         f = pyopen(inout_nodes_file, "r")
         lines = f.readlines()
         for line in lines:
-            a = line.split(',')
+            a = line.split(",")
             inout_nodes.append(a)
         f.close()
-        print(inout_nodes)
+        Console.PrintMessage("{}\n".format(inout_nodes))
     frd_file = pyopen(frd_input, "r")
     nodes = {}
     elements_hexa8 = {}
@@ -228,8 +251,8 @@ def read_frd_result(
     elements_seg3 = {}
     results = []
     mode_results = {}
-    mode_results['number'] = float('NaN')
-    mode_results['time'] = float('NaN')
+    mode_results["number"] = float("NaN")
+    mode_results["time"] = float("NaN")
     mode_disp = {}
     mode_stress = {}
     mode_strain = {}
@@ -343,7 +366,7 @@ def read_frd_result(
                 nd19 = int(line[83:93])
                 nd20 = int(line[93:103])
                 input_continues = False
-                '''
+                """
                 CalculiX uses a different node order in
                 input file *.inp and result file *.frd for hexa20 (C3D20)
                 according to Guido (the developer of ccx):
@@ -363,12 +386,11 @@ def read_frd_result(
                     nd16, nd13, nd18, nd19, nd20, nd17, nd10, nd11, nd12, nd9
                 )
                 hexa20 import works with the following frd file node assignment
-                '''
+                """
                 elements_hexa20[elem] = (
                     nd8, nd5, nd6, nd7, nd4, nd1, nd2, nd3, nd20, nd17,
                     nd18, nd19, nd12, nd9, nd10, nd11, nd16, nd13, nd14, nd15
                 )
-                # print(elements_hexa20[elem])
             elif elemType == 5 and input_continues is False:
                 # first line
                 # C3D15 Calculix --> penta15 FreeCAD
@@ -392,7 +414,7 @@ def read_frd_result(
                 nd14 = int(line[33:43])
                 nd15 = int(line[43:53])
                 input_continues = False
-                '''
+                """
                 CalculiX uses a different node order in
                 input file *.inp and result file *.frd for penta15 (C3D15)
                 see notes at hexa20
@@ -400,7 +422,7 @@ def read_frd_result(
                     nd5, nd6, nd4, nd2, nd3, nd1, nd11, nd12, nd10, nd8,
                     nd9, nd7, nd14, nd15, nd13
                 )  # order of the *.inp file
-                '''
+                """
                 elements_penta15[elem] = (
                     nd5, nd6, nd4, nd2, nd3, nd1, nd14, nd15, nd13, nd8,
                     nd9, nd7, nd11, nd12, nd10
@@ -608,57 +630,57 @@ def read_frd_result(
                 node_element_section = True
 
             if mode_disp_found:
-                mode_results['disp'] = mode_disp
+                mode_results["disp"] = mode_disp
                 mode_disp = {}
                 mode_disp_found = False
                 node_element_section = False
 
             if mode_stress_found:
-                mode_results['stress'] = mode_stress
+                mode_results["stress"] = mode_stress
                 mode_stress = {}
                 mode_stress_found = False
                 node_element_section = False
 
             if mode_strain_found:
-                mode_results['strain'] = mode_strain
+                mode_results["strain"] = mode_strain
 
                 mode_strain = {}
                 mode_strain_found = False
                 node_element_section = False
 
             if mode_peeq_found:
-                mode_results['peeq'] = mode_peeq
+                mode_results["peeq"] = mode_peeq
                 mode_peeq = {}
                 mode_peeq_found = False
                 node_element_section = False
 
             if mode_temp_found:
-                mode_results['temp'] = mode_temp
+                mode_results["temp"] = mode_temp
                 mode_temp = {}
                 mode_temp_found = False
                 node_element_section = False
 
             if mode_massflow_found:
-                mode_results['mflow'] = mode_massflow
+                mode_results["mflow"] = mode_massflow
                 mode_massflow = {}
                 mode_massflow_found = False
                 node_element_section = False
 
             if mode_networkpressure_found:
-                mode_results['npressure'] = mode_networkpressure
+                mode_results["npressure"] = mode_networkpressure
                 mode_networkpressure_found = False
                 mode_networkpressure = {}
                 node_element_section = False
 
-            '''
-            print('---- End of Section --> Mode_Results may be changed ----')
+            """
+            print("---- End of Section --> Mode_Results may be changed ----")
             for key in sorted(mode_results.keys()):
-                if key is 'number' or key is 'time':
-                    print(key + ' --> ' + str(mode_results[key]))
+                if key is "number" or key is "time":
+                    print(key + " --> " + str(mode_results[key]))
                 else:
-                    print(key + ' --> ' + str(len(mode_results[key])))
-            print('----Mode_Results----\n')
-            '''
+                    print(key + " --> " + str(len(mode_results[key])))
+            print("----Mode_Results----\n")
+            """
 
         # Check if we found the end of frd data
         if line[1:5] == "9999":
@@ -668,34 +690,34 @@ def read_frd_result(
                 and end_of_section_found \
                 and not node_element_section:
 
-            '''
-            print('\n\n----Append mode_results to results')
+            """
+            print("\n\n----Append mode_results to results")
             print(line)
             for key in sorted(mode_results.keys()):
-                if key is 'number' or key is 'time':
-                    print(key + ' --> ' + str(mode_results[key]))
+                if key is "number" or key is "time":
+                    print(key + " --> " + str(mode_results[key]))
                 else:
-                    print(key + ' --> ' + str(len(mode_results[key])))
-            print('----Append Mode_Results----\n')
-            '''
+                    print(key + " --> " + str(len(mode_results[key])))
+            print("----Append Mode_Results----\n")
+            """
 
             # append mode_results to results and reset mode_result
             results.append(mode_results)
             mode_results = {}
             # https://forum.freecadweb.org/viewtopic.php?f=18&t=32649&start=10#p274686
-            mode_results['number'] = float('NaN')
-            mode_results['time'] = float('NaN')
+            mode_results["number"] = float("NaN")
+            mode_results["time"] = float("NaN")
             end_of_section_found = False
 
         # on changed --> write changed values in mode_result
         # will be the first to do on an empty mode_result
         if mode_eigen_changed:
-            mode_results['number'] = eigenmode
+            mode_results["number"] = eigenmode
             mode_eigen_changed = False
 
         if mode_time_changed:
-            mode_results['time'] = timestep
-            # mode_results['time'] = 0  # Don't return time if static  # WARUM?
+            mode_results["time"] = timestep
+            # mode_results["time"] = 0  # Don't return time if static  # Why?
             mode_time_found = False
             mode_time_changed = False
 
@@ -705,37 +727,37 @@ def read_frd_result(
     # close frd file if loop over all lines is finished
     frd_file.close()
 
-    '''
+    """
     # debug prints and checks with the read data
-    print('\n\n----RESULTS values begin----')
+    print("\n\n----RESULTS values begin----")
     print(len(results))
-    # print('\n')
+    # print("\n")
     # print(results)
-    print('----RESULTS values end----\n\n')
-    '''
+    print("----RESULTS values end----\n\n")
+    """
 
     if not inout_nodes:
         if results:
-            if 'mflow' in results[0] or 'npressure' in results[0]:
-                FreeCAD.Console.PrintError(
-                    'We have mflow or npressure, but no inout_nodes file.\n'
+            if "mflow" in results[0] or "npressure" in results[0]:
+                Console.PrintError(
+                    "We have mflow or npressure, but no inout_nodes file.\n"
                 )
     if not nodes:
-        FreeCAD.Console.PrintError('FEM: No nodes found in Frd file.\n')
+        Console.PrintError("FEM: No nodes found in Frd file.\n")
 
     return {
-        'Nodes': nodes,
-        'Seg2Elem': elements_seg2,
-        'Seg3Elem': elements_seg3,
-        'Tria3Elem': elements_tria3,
-        'Tria6Elem': elements_tria6,
-        'Quad4Elem': elements_quad4,
-        'Quad8Elem': elements_quad8,
-        'Tetra4Elem': elements_tetra4,
-        'Tetra10Elem': elements_tetra10,
-        'Hexa8Elem': elements_hexa8,
-        'Hexa20Elem': elements_hexa20,
-        'Penta6Elem': elements_penta6,
-        'Penta15Elem': elements_penta15,
-        'Results': results
+        "Nodes": nodes,
+        "Seg2Elem": elements_seg2,
+        "Seg3Elem": elements_seg3,
+        "Tria3Elem": elements_tria3,
+        "Tria6Elem": elements_tria6,
+        "Quad4Elem": elements_quad4,
+        "Quad8Elem": elements_quad8,
+        "Tetra4Elem": elements_tetra4,
+        "Tetra10Elem": elements_tetra10,
+        "Hexa8Elem": elements_hexa8,
+        "Hexa20Elem": elements_hexa20,
+        "Penta6Elem": elements_penta6,
+        "Penta15Elem": elements_penta15,
+        "Results": results
     }

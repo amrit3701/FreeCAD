@@ -43,13 +43,8 @@ __scriptVersion__ = "1d usable"
 __lastModified__ = "2019-07-22 23:49 CST"
 
 
-LOGLEVEL = False
-
-if LOGLEVEL:
-    PathLog.setLevel(PathLog.Level.DEBUG, PathLog.thisModule())
-    PathLog.trackModule(PathLog.thisModule())
-else:
-    PathLog.setLevel(PathLog.Level.INFO, PathLog.thisModule())
+PathLog.setLevel(PathLog.Level.INFO, PathLog.thisModule())
+#PathLog.trackModule(PathLog.thisModule())
 
 
 # Qt translation handling
@@ -80,7 +75,8 @@ class ObjectFace(PathPocketBase.ObjectPocket):
         # default depths calculation not correct for facing
         if prop == "Base":
             job = PathUtils.findParentJob(obj)
-            obj.OpStartDepth = job.Stock.Shape.BoundBox.ZMax
+            if job:
+                obj.OpStartDepth = job.Stock.Shape.BoundBox.ZMax
 
             if len(obj.Base) >= 1:
                 print('processing')
@@ -95,7 +91,7 @@ class ObjectFace(PathPocketBase.ObjectPocket):
             # Otherwise, top of part.
 
                 obj.OpFinalDepth = Part.makeCompound(sublist).BoundBox.ZMax
-            else:
+            elif job:
                 obj.OpFinalDepth = job.Proxy.modelBoundBox(job).ZMax
 
     def areaOpShapes(self, obj):
@@ -130,7 +126,7 @@ class ObjectFace(PathPocketBase.ObjectPocket):
                                 else:
                                     holes.append((b[0].Shape, wire))
                     else:
-                        PathLog.error('The base subobject, "{}," is not a face. Ignoring "{}."'.format(sub, sub))
+                        PathLog.error('The base subobject, "{0}," is not a face. Ignoring "{0}."'.format(sub))
 
             if obj.ExcludeRaisedAreas is True and len(holes) > 0:
                 for shape, wire in holes:

@@ -46,7 +46,7 @@ if FreeCAD.GuiUp:
 
 __title__ = "Path Circular Holes Base Operation"
 __author__ = "sliptonic (Brad Collette)"
-__url__ = "http://www.freecadweb.org"
+__url__ = "https://www.freecadweb.org"
 __doc__ = "Base class an implementation for operations on circular holes."
 __contributors__ = "russ4262 (Russell Johnson)"
 __created__ = "2017"
@@ -59,13 +59,8 @@ def translate(context, text, disambig=None):
     return QtCore.QCoreApplication.translate(context, text, disambig)
 
 
-LOGLEVEL = False
-
-if LOGLEVEL:
-    PathLog.setLevel(PathLog.Level.DEBUG, PathLog.thisModule())
-    PathLog.trackModule(PathLog.thisModule())
-else:
-    PathLog.setLevel(PathLog.Level.INFO, PathLog.thisModule())
+PathLog.setLevel(PathLog.Level.INFO, PathLog.thisModule())
+#PathLog.trackModule(PathLog.thisModule())
 
 
 class ObjectOp(PathOp.ObjectOp):
@@ -80,7 +75,7 @@ class ObjectOp(PathOp.ObjectOp):
     def opFeatures(self, obj):
         '''opFeatures(obj) ... calls circularHoleFeatures(obj) and ORs in the standard features required for processing circular holes.
         Do not overwrite, implement circularHoleFeatures(obj) instead'''
-        return PathOp.FeatureTool | PathOp.FeatureDepths | PathOp.FeatureHeights | PathOp.FeatureBaseFaces | self.circularHoleFeatures(obj)
+        return PathOp.FeatureTool | PathOp.FeatureDepths | PathOp.FeatureHeights | PathOp.FeatureBaseFaces | self.circularHoleFeatures(obj) | PathOp.FeatureCoolant 
 
     def circularHoleFeatures(self, obj):
         '''circularHoleFeatures(obj) ... overwrite to add operations specific features.
@@ -141,8 +136,17 @@ class ObjectOp(PathOp.ObjectOp):
 
             if shape.ShapeType == 'Edge' and type(shape.Curve) == Part.Circle:
                 return shape.Curve.Radius * 2
-
-            # for all other shapes the diameter is just the dimension in X
+            
+            if shape.ShapeType == 'Face':
+                for i in range(len(shape.Edges)):
+                    if (type(shape.Edges[i].Curve) == Part.Circle and 
+                        shape.Edges[i].Curve.Radius * 2 < shape.BoundBox.XLength*1.1 and 
+                        shape.Edges[i].Curve.Radius * 2 > shape.BoundBox.XLength*0.9):
+                        return shape.Edges[i].Curve.Radius * 2
+                        
+            
+            # for all other shapes the diameter is just the dimension in X. This may be inaccurate as the BoundBox is calculated on the tessellated geometry
+            PathLog.warning(translate("Path", "Hole diameter may be inaccurate due to tessellation on face. Consider selecting hole edge."))
             return shape.BoundBox.XLength
         except Part.OCCError as e:
             PathLog.error(e)
@@ -375,7 +379,7 @@ class ObjectOp(PathOp.ObjectOp):
         if 1 == len(self.model) and self.baseIsArchPanel(obj, self.model[0]):
             panel = self.model[0]
             holeshapes = panel.Proxy.getHoles(panel, transform=True)
-            tooldiameter = obj.ToolController.Proxy.getTool(obj.ToolController).Diameter
+            tooldiameter = float(obj.ToolController.Proxy.getTool(obj.ToolController).Diameter)
             for holeNr, hole in enumerate(holeshapes):
                 PathLog.debug('Entering new HoleShape')
                 for wireNr, wire in enumerate(hole.Wires):
@@ -396,7 +400,7 @@ class ObjectOp(PathOp.ObjectOp):
         PathLog.track('obj: {} shape: {}'.format(obj, shape))
         holelist = []
         features = []
-        # tooldiameter = obj.ToolController.Proxy.getTool(obj.ToolController).Diameter
+        # tooldiameter = float(obj.ToolController.Proxy.getTool(obj.ToolController).Diameter)
         tooldiameter = None
         PathLog.debug('search for holes larger than tooldiameter: {}: '.format(tooldiameter))
         if DraftGeomUtils.isPlanar(shape):

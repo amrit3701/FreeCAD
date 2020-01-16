@@ -195,6 +195,7 @@ void MeshFaceAddition::startEditing(MeshGui::ViewProviderMesh* vp)
     Gui::View3DInventor* view = static_cast<Gui::View3DInventor*>(parent());
     Gui::View3DInventorViewer* viewer = view->getViewer();
     viewer->setEditing(true);
+    viewer->setSelectionEnabled(false);
     viewer->setRedirectToSceneGraph(true);
     viewer->setRedirectToSceneGraphEnabled(true);
 
@@ -211,6 +212,7 @@ void MeshFaceAddition::finishEditing()
     Gui::View3DInventor* view = static_cast<Gui::View3DInventor*>(parent());
     Gui::View3DInventorViewer* viewer = view->getViewer();
     viewer->setEditing(false);
+    viewer->setSelectionEnabled(true);
     viewer->setRedirectToSceneGraph(false);
     viewer->setRedirectToSceneGraphEnabled(false);
 
@@ -478,11 +480,11 @@ void MeshFillHole::startEditing(MeshGui::ViewProviderMesh* vp)
     myConnection = App::GetApplication().signalChangedObject.connect(
         boost::bind(&MeshFillHole::slotChangedObject, this, _1, _2));
 
-    myBoundariesRoot->removeAllChildren();
+    Gui::coinRemoveAllChildren(myBoundariesRoot);
     myBoundariesRoot->addChild(viewer->getHeadlight());
     myBoundariesRoot->addChild(viewer->getSoRenderManager()->getCamera());
     myBoundariesRoot->addChild(myBoundariesGroup);
-    myBoundaryRoot->removeAllChildren();
+    Gui::coinRemoveAllChildren(myBoundaryRoot);
     myBoundaryRoot->addChild(viewer->getHeadlight());
     myBoundaryRoot->addChild(viewer->getSoRenderManager()->getCamera());
     createPolygons();
@@ -541,7 +543,7 @@ void MeshFillHole::closeBridge()
 void MeshFillHole::slotChangedObject(const App::DocumentObject& Obj, const App::Property& Prop)
 {
     if (&Obj == myMesh && strcmp(Prop.getName(),"Mesh") == 0) {
-        myBoundariesGroup->removeAllChildren();
+        Gui::coinRemoveAllChildren(myBoundariesGroup);
         myVertex->point.setNum(0);
         myNumPoints = 0;
         myPolygon.clear();

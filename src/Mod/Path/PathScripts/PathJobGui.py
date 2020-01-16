@@ -36,7 +36,7 @@ import PathScripts.PathPreferences as PathPreferences
 import PathScripts.PathSetupSheetGui as PathSetupSheetGui
 import PathScripts.PathStock as PathStock
 import PathScripts.PathToolControllerGui as PathToolControllerGui
-import PathScripts.PathToolLibraryManager as PathToolLibraryManager
+import PathScripts.PathToolLibraryEditor as PathToolLibraryEditor
 import PathScripts.PathUtil as PathUtil
 import PathScripts.PathUtils as PathUtils
 import math
@@ -527,12 +527,16 @@ class StockFromExistingEdit(StockEdit):
 
     def candidates(self, obj):
         solids = [o for o in obj.Document.Objects if PathUtil.isSolid(o)]
-        for base in obj.Model.Group:
-            if base in solids and PathJob.isResourceClone(obj, base, 'Model'):
+        if hasattr(obj, 'Model'): 
+            job = obj
+        else:
+            job = PathUtils.findParentJob(obj)
+        for base in job.Model.Group:
+            if base in solids and PathJob.isResourceClone(job, base, 'Model'):
                 solids.remove(base)
-        if obj.Stock in solids:
+        if job.Stock in solids:
             # regardless, what stock is/was, it's not a valid choice
-            solids.remove(obj.Stock)
+            solids.remove(job.Stock)
         return sorted(solids, key=lambda c: c.Label)
 
     def setFields(self, obj):
@@ -854,7 +858,7 @@ class TaskPanel:
         self.toolControllerSelect()
 
     def toolControllerAdd(self):
-        PathToolLibraryManager.CommandToolLibraryEdit().edit(self.obj, self.updateToolController)
+        PathToolLibraryEditor.CommandToolLibraryEdit().edit(self.obj, self.updateToolController)
 
     def toolControllerDelete(self):
         self.objectDelete(self.form.toolControllerList)

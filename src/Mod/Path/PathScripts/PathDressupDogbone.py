@@ -37,13 +37,8 @@ from PySide import QtCore
 
 LOG_MODULE = PathLog.thisModule()
 
-LOGLEVEL = False
-
-if LOGLEVEL:
-    PathLog.setLevel(PathLog.Level.DEBUG, LOG_MODULE)
-    PathLog.setLevel(PathLog.Level.DEBUG, LOG_MODULE)
-else:
-    PathLog.setLevel(PathLog.Level.NOTICE, LOG_MODULE)
+PathLog.setLevel(PathLog.Level.NOTICE, LOG_MODULE)
+#PathLog.setLevel(PathLog.Level.DEBUG, LOG_MODULE)
 
 
 # Qt translation handling
@@ -860,10 +855,10 @@ class ObjectDressup:
             self.toolRadius = 5
         else:
             tool = tc.Proxy.getTool(tc)  # PathUtils.getTool(obj, tc.ToolNumber)
-            if not tool or tool.Diameter == 0:
+            if not tool or float(tool.Diameter) == 0:
                 self.toolRadius = 5
             else:
-                self.toolRadius = tool.Diameter / 2
+                self.toolRadius = float(tool.Diameter) / 2
 
         self.shapes = {}
         self.dbg = []
@@ -1051,10 +1046,12 @@ class ViewProviderDressup:
     def onDelete(self, arg1=None, arg2=None):
         '''this makes sure that the base operation is added back to the project and visible'''
         # pylint: disable=unused-argument
-        FreeCADGui.ActiveDocument.getObject(arg1.Object.Base.Name).Visibility = True
-        job = PathUtils.findParentJob(arg1.Object)
-        job.Proxy.addOperation(arg1.Object.Base, arg1.Object)
-        arg1.Object.Base = None
+        if arg1.Object and arg1.Object.Base:
+            FreeCADGui.ActiveDocument.getObject(arg1.Object.Base.Name).Visibility = True
+            job = PathUtils.findParentJob(arg1.Object)
+            if job:
+                job.Proxy.addOperation(arg1.Object.Base, arg1.Object)
+            arg1.Object.Base = None
         return True
 
 

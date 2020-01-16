@@ -1,5 +1,6 @@
 /***************************************************************************
- *   Copyright (c) 2012 Jan Rheinländer <jrheinlaender@users.sourceforge.net>        *
+ *   Copyright (c) 2012 Jan Rheinländer                                    *
+ *                                   <jrheinlaender@users.sourceforge.net> *
  *                                                                         *
  *   This file is part of the FreeCAD CAx development system.              *
  *                                                                         *
@@ -51,6 +52,7 @@ public:
 
     void hideObject();
     void showObject();
+    void setupTransaction();
 
     /// Apply the changes made to the object to it
     virtual void apply() {};
@@ -79,6 +81,7 @@ protected:
 
     bool allowFaces, allowEdges;
     selectionModes selectionMode;    
+    int transactionID;
 };
 
 /// simulation dialog for the TaskView
@@ -96,6 +99,7 @@ public:
 public:
     /// is called by the framework if the dialog is accepted (Ok)
     virtual bool accept();
+    virtual bool reject();
 
 protected:
     TaskDressUpParameters  *parameter;
