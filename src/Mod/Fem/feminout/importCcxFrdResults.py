@@ -127,7 +127,7 @@ def importFrd(
 
                 # complementary result object calculations
                 import femresult.resulttools as restools
-                import femtools.femutils as femutils
+                from femtools import femutils
                 if not res_obj.MassFlowRate:
                     # information 1:
                     # only compact result if not Flow 1D results
@@ -151,7 +151,7 @@ def importFrd(
 
                 # fill DisplacementLengths
                 res_obj = restools.add_disp_apps(res_obj)
-                # fill StressValues
+                # fill vonMises
                 res_obj = restools.add_von_mises(res_obj)
                 if res_obj.getParentGroup():
                     has_reinforced_mat = False

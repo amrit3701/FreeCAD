@@ -33,7 +33,8 @@ import FreeCADGui
 from . import ViewProviderFemConstraint
 
 # for the panel
-import femtools.femutils as femutils
+from femtools import femutils
+from femtools import membertools
 from FreeCAD import Units
 from . import FemSelectionWidgets
 
@@ -69,8 +70,8 @@ class _TaskPanel(object):
         )
         self._initParamWidget()
         self.form = [self._refWidget, self._paramWidget]
-        analysis = femutils.findAnalysisOfMember(obj)
-        self._mesh = femutils.get_single_member(analysis, "Fem::FemMeshObject")
+        analysis = obj.getParentGroup()
+        self._mesh = membertools.get_single_member(analysis, "Fem::FemMeshObject")
         self._part = None
         if self._mesh is not None:
             self._part = femutils.get_part_to_mesh(self._mesh)

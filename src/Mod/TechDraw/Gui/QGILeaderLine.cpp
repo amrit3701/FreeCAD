@@ -280,14 +280,8 @@ void QGILeaderLine::onLineEditFinished(QPointF tipDisplace, std::vector<QPointF>
         featLeader->adjustLastSegment();
     }
 
-    if (m_parentItem == nullptr) {
-        Base::Console().Warning("QGILL::onLineEditFinished - m_parentItem is NULL\n");
-    } else {
-        QGIView* qgiv = dynamic_cast<QGIView*>(m_parentItem);
-        if (qgiv != nullptr) {
-            Q_EMIT editComplete();           //to task
-        }
-    }
+    Q_EMIT editComplete();           //tell task editing is complete
+
     m_blockDraw = false;
     m_editPath->hide();
     draw();
@@ -410,6 +404,7 @@ void QGILeaderLine::draw()
     } else {
         setPrettyNormal();
     }
+    update(boundingRect());
 }
 
 QPainterPath QGILeaderLine::makeLeaderPath(std::vector<QPointF> qPoints)
@@ -590,8 +585,9 @@ double QGILeaderLine::getEdgeFuzz(void) const
 QColor QGILeaderLine::getNormalColor()
 {
 //    Base::Console().Message("QGILL::getNormalColor()\n");
-    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter()
-                                        .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/TechDraw/LeaderLinens");
+    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter().
+                                         GetGroup("BaseApp")->GetGroup("Preferences")->
+                                         GetGroup("Mod/TechDraw/LeaderLines");
     App::Color fcColor;
     fcColor.setPackedValue(hGrp->GetUnsigned("Color", 0x00000000));
     m_colNormal = fcColor.asValue<QColor>();

@@ -26,13 +26,15 @@ __url__ = "http://www.freecadweb.org"
 ## \addtogroup FEM
 #  @{
 
-from PySide import QtGui
 
 import FreeCAD as App
-import femtools.femutils as femutils
+
 from . import run
+from femtools.errors import MustSaveError
+from femtools.errors import DirectoryDoesNotExistError
 
 if App.GuiUp:
+    from PySide import QtGui
     import FreeCADGui as Gui
     from femguiobjects import _TaskPanelFemSolverControl
 
@@ -78,7 +80,7 @@ class ViewProxy(object):
     def setEdit(self, vobj, mode=0):
         try:
             machine = run.getMachine(vobj.Object)
-        except femutils.MustSaveError:
+        except MustSaveError:
             error_message = (
                 "Please save the file before opening the task panel. "
                 "This must be done because the location of the working "
@@ -91,7 +93,7 @@ class ViewProxy(object):
                 error_message
             )
             return False
-        except femutils.DirectoryDoesNotExistError:
+        except DirectoryDoesNotExistError:
             error_message = "Selected working directory doesn't exist."
             App.Console.PrintError(error_message + "\n")
             QtGui.QMessageBox.critical(

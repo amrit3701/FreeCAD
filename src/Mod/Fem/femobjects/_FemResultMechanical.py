@@ -139,9 +139,9 @@ class _FemResultMechanical():
         )
         obj.addProperty(
             "App::PropertyFloatList",
-            "StressValues",
+            "vonMises",
             "NodeData",
-            "",
+            "List of von Mises equivalent stresses",
             True
         )
         obj.addProperty(
@@ -286,7 +286,7 @@ class _FemResultMechanical():
 
         # initialize the Stats with the appropriate count of items
         # see fill_femresult_stats in femresult/resulttools.py
-        zero_list = 39 * [0]
+        zero_list = 26 * [0]
         obj.Stats = zero_list
 
     # standard Feature methods
@@ -300,6 +300,28 @@ class _FemResultMechanical():
 
     def onChanged(self, obj, prop):
         return
+
+    def onDocumentRestored(self, obj):
+        # migrate old result objects, because property "StressValues"
+        # was renamed to "vonMises" in commit 8b68ab7
+        if hasattr(obj, "StressValues") is True:
+            obj.addProperty(
+                "App::PropertyFloatList",
+                "vonMises",
+                "NodeData",
+                "List of von Mises equivalent stresses",
+                True
+            )
+            obj.vonMises = obj.StressValues
+            obj.removeProperty("StressValues")
+
+        # migrate old result objects, because property "Stats"
+        # consisting of min, avg, max values was reduced to min, max in commit c2a57b3e
+        if len(obj.Stats) == 39:
+            temp = obj.Stats
+            for i in range(12, -1, -1):
+                del temp[3 * i + 1]
+            obj.Stats = temp
 
     def __getstate__(self):
         return self.Type

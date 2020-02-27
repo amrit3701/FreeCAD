@@ -32,6 +32,11 @@ import math
 
 from PySide import QtCore
 
+__title__ = "Path Deburr Operation"
+__author__ = "sliptonic (Brad Collette), Schildkroet"
+__url__ = "http://www.freecadweb.org"
+__doc__ = "Deburr operation."
+
 PathLog.setLevel(PathLog.Level.INFO, PathLog.thisModule())
 #PathLog.trackModule(PathLog.thisModule())
 
@@ -69,6 +74,8 @@ class ObjectDeburr(PathEngraveBase.ObjectOp):
         obj.addProperty('App::PropertyEnumeration', 'Join', 'Deburr', QtCore.QT_TRANSLATE_NOOP('PathDeburr', 'How to join chamfer segments'))
         obj.Join = ['Round', 'Miter']
         obj.setEditorMode('Join', 2)  # hide for now
+        obj.addProperty('App::PropertyEnumeration', 'Direction',  'Deburr', QtCore.QT_TRANSLATE_NOOP('PathDeburr', 'Direction of Operation'))
+        obj.Direction = ['CW', 'CCW']
 
     def opOnDocumentRestored(self, obj):
         obj.setEditorMode('Join', 2)  # hide for now
@@ -104,6 +111,10 @@ class ObjectDeburr(PathEngraveBase.ObjectOp):
                 if wire:
                     wires.append(wire)
 
+        forward = True
+        if obj.Direction == 'CCW':
+            forward = False
+        
         zValues = []
         z = 0
         if obj.StepDown.Value != 0:
@@ -114,7 +125,7 @@ class ObjectDeburr(PathEngraveBase.ObjectOp):
         PathLog.track(obj.Label, depth, zValues)
 
         self.wires = wires # pylint: disable=attribute-defined-outside-init
-        self.buildpathocc(obj, wires, zValues, True)
+        self.buildpathocc(obj, wires, zValues, True, forward)
 
         # the last command is a move to clearance, which is automatically added by PathOp
         if self.commandlist:
@@ -131,6 +142,7 @@ class ObjectDeburr(PathEngraveBase.ObjectOp):
         obj.Join = 'Round'
         obj.setExpression('StepDown', '0 mm')
         obj.StepDown = '0 mm'
+        obj.Direction = 'CW'
 
 
 def SetupProperties():

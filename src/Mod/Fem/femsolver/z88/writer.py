@@ -26,11 +26,13 @@ __url__ = "http://www.freecadweb.org"
 ## \addtogroup FEM
 #  @{
 
-import FreeCAD
 import time
-import femmesh.meshtools as FemMeshTools
-import feminout.importZ88Mesh as importZ88Mesh
+
+import FreeCAD
+
 from .. import writerbase as FemInputWriter
+from feminout import importZ88Mesh
+from femmesh import meshtools as FemMeshTools
 
 
 class FemInputWriterZ88(FemInputWriter.FemInputWriter):
@@ -39,23 +41,7 @@ class FemInputWriterZ88(FemInputWriter.FemInputWriter):
         analysis_obj,
         solver_obj,
         mesh_obj,
-        matlin_obj,
-        matnonlin_obj,
-        fixed_obj,
-        displacement_obj,
-        contact_obj,
-        planerotation_obj,
-        transform_obj,
-        selfweight_obj,
-        force_obj,
-        pressure_obj,
-        temperature_obj,
-        heatflux_obj,
-        initialtemperature_obj,
-        beamsection_obj,
-        beamrotation_obj,
-        shellthickness_obj,
-        fluidsection_obj,
+        member,
         dir_name=None
     ):
         FemInputWriter.FemInputWriter.__init__(
@@ -63,23 +49,7 @@ class FemInputWriterZ88(FemInputWriter.FemInputWriter):
             analysis_obj,
             solver_obj,
             mesh_obj,
-            matlin_obj,
-            matnonlin_obj,
-            fixed_obj,
-            displacement_obj,
-            contact_obj,
-            planerotation_obj,
-            transform_obj,
-            selfweight_obj,
-            force_obj,
-            pressure_obj,
-            temperature_obj,
-            heatflux_obj,
-            initialtemperature_obj,
-            beamsection_obj,
-            beamrotation_obj,
-            shellthickness_obj,
-            fluidsection_obj,
+            member,
             dir_name
         )
         from os.path import join
@@ -92,7 +62,7 @@ class FemInputWriterZ88(FemInputWriter.FemInputWriter):
         )
 
     def write_z88_input(self):
-        timestart = time.clock()
+        timestart = time.process_time()
         if not self.femnodes_mesh:
             self.femnodes_mesh = self.femmesh.Nodes
         if not self.femelement_table:
@@ -109,7 +79,7 @@ class FemInputWriterZ88(FemInputWriter.FemInputWriter):
         self.write_z88_solver_parameter()
         writing_time_string = (
             "Writing time input file: {} seconds"
-            .format(round((time.clock() - timestart), 2))
+            .format(round((time.process_time() - timestart), 2))
         )
         FreeCAD.Console.PrintMessage(writing_time_string + " \n\n")
         return self.dir_name

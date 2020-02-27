@@ -225,6 +225,30 @@ App::DocumentObjectExecReturn *DrawViewDetail::execute(void)
         //unblock
     }
 
+    detailExec(shape, dvp, dvs);
+    addShapes2d();
+
+    //second pass if required
+    if (ScaleType.isValue("Automatic")) {
+        if (!checkFit()) {
+            double newScale = autoScale();
+            Scale.setValue(newScale);
+            Scale.purgeTouched();
+            if (geometryObject != nullptr) {
+                delete geometryObject;
+                geometryObject = nullptr;
+                detailExec(shape, dvp, dvs);
+            }
+        }
+    }
+    dvp->requestPaint();  //to refresh detail highlight!
+    return DrawView::execute();
+}
+
+void DrawViewDetail::detailExec(TopoDS_Shape shape,
+                                DrawViewPart* dvp,
+                                DrawViewSection* dvs)
+{
     Base::Vector3d anchor = AnchorPoint.getValue();    //this is a 2D point (in unrotated coords)
     Base::Vector3d dirDetail = dvp->Direction.getValue();
 
@@ -237,6 +261,7 @@ App::DocumentObjectExecReturn *DrawViewDetail::execute(void)
     gp_Pnt gpCenter = TechDraw::findCentroid(copyShape,
                                              dirDetail);
     Base::Vector3d shapeCenter = Base::Vector3d(gpCenter.X(),gpCenter.Y(),gpCenter.Z());
+    m_saveCentroid = shapeCenter;              //centroid of original shape
 
     if (dvs != nullptr) {
         //section cutShape should already be on origin
@@ -246,6 +271,7 @@ App::DocumentObjectExecReturn *DrawViewDetail::execute(void)
     }
 
     shapeCenter = Base::Vector3d(0.0, 0.0, 0.0);
+
 
     gp_Ax2 viewAxis;
 
@@ -269,7 +295,7 @@ App::DocumentObjectExecReturn *DrawViewDetail::execute(void)
     TopoDS_Face aProjFace = mkFace.Face();
     if(aProjFace.IsNull()) {
         Base::Console().Warning("DVD::execute - %s - failed to create tool base face\n", getNameInDocument());
-        return DrawView::execute();
+        return;
     }
 
     Base::Vector3d extrudeVec = dirDetail * extrudeLength;
@@ -279,11 +305,11 @@ App::DocumentObjectExecReturn *DrawViewDetail::execute(void)
     BRepAlgoAPI_Common mkCommon(copyShape,tool);
     if (!mkCommon.IsDone()) {
         Base::Console().Warning("DVD::execute - %s - detail cut operation failed (1)\n", getNameInDocument());
-        return DrawView::execute();
+        return;
     }
     if (mkCommon.Shape().IsNull()) {
         Base::Console().Warning("DVD::execute - %s - detail cut operation failed (2)\n", getNameInDocument());
-        return DrawView::execute();
+        return;
     }
 
     //Did we get a solid?
@@ -310,7 +336,7 @@ App::DocumentObjectExecReturn *DrawViewDetail::execute(void)
         }
         dvp->requestPaint();
         Base::Console().Warning("DVD::execute - %s - detail area contains no geometry\n", getNameInDocument());
-        return DrawView::execute();
+        return;
     }
 
 //for debugging show compound instead of common
@@ -327,6 +353,7 @@ App::DocumentObjectExecReturn *DrawViewDetail::execute(void)
     Base::Vector3d centroid(inputCenter.X(),
                             inputCenter.Y(),
                             inputCenter.Z());
+    m_saveCentroid += centroid;              //center of massaged shape
 
     Base::Vector3d stdOrg(0.0,0.0,0.0);
     gp_Ax2 viewAxis = dvp->getProjectionCS(stdOrg);  //sb same CS as base view. 
@@ -358,7 +385,7 @@ App::DocumentObjectExecReturn *DrawViewDetail::execute(void)
         }
         catch (Standard_Failure& e4) {
             Base::Console().Log("LOG - DVD::execute - extractFaces failed for %s - %s **\n",getNameInDocument(),e4.GetMessageString());
-            return new App::DocumentObjectExecReturn(e4.GetMessageString());
+            return;
         }
     }
 
@@ -366,18 +393,15 @@ App::DocumentObjectExecReturn *DrawViewDetail::execute(void)
     }
     catch (Standard_Failure& e1) {
         Base::Console().Message("LOG - DVD::execute - failed to create detail %s - %s **\n",getNameInDocument(),e1.GetMessageString());
-
-        return new App::DocumentObjectExecReturn(e1.GetMessageString());
+        return;
     }
 
     addCosmeticVertexesToGeom();
     addCosmeticEdgesToGeom();
     addCenterLinesToGeom();
 
-    requestPaint();
-    dvp->requestPaint();  //to refresh detail highlight!
+    addReferencesToGeom();   //what if landmarks are outside detail area??
 
-    return DrawView::execute();
 }
 
 double DrawViewDetail::getFudgeRadius()

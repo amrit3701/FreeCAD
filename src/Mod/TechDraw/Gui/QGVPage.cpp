@@ -66,6 +66,7 @@
 #include <Mod/TechDraw/App/DrawViewCollection.h>
 #include <Mod/TechDraw/App/DrawViewBalloon.h>
 #include <Mod/TechDraw/App/DrawViewDimension.h>
+//#include <Mod/TechDraw/App/LandmarkDimension.h>
 #include <Mod/TechDraw/App/DrawProjGroup.h>
 #include <Mod/TechDraw/App/DrawViewPart.h>
 #include <Mod/TechDraw/App/DrawViewAnnotation.h>
@@ -108,6 +109,11 @@
 #include "ViewProviderPage.h"
 #include "QGVPage.h"
 #include "MDIViewPage.h"
+
+// used SVG namespaces
+#define CC_NS_URI "http://creativecommons.org/ns#"
+#define DC_NS_URI "http://purl.org/dc/elements/1.1/"
+#define RDF_NS_URI "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
 
 using namespace Gui;
 using namespace TechDraw;
@@ -485,6 +491,7 @@ QGIView * QGVPage::addViewDimension(TechDraw::DrawViewDimension *dim)
 
 void QGVPage::addDimToParent(QGIViewDimension* dim, QGIView* parent)
 {
+//    Base::Console().Message("QGVP::addDimToParent()\n");
     assert(dim);
     assert(parent);          //blow up if we don't have Dimension or Parent
     QPointF posRef(0.,0.);
@@ -612,10 +619,21 @@ QGIView * QGVPage::findParent(QGIView *view) const
     const std::vector<QGIView *> qviews = getViews();
     TechDraw::DrawView *myFeat = view->getViewObject();
 
+//LandmarkDimension shouldn't require special handling
+//    TechDraw::LandmarkDimension *robust = nullptr;
+//    robust = dynamic_cast<TechDraw::LandmarkDimension*>(myFeat);
+//    if (robust != nullptr) {
+//        App::DocumentObject* robustParent = robust->ParentView.getValue();
+//        for (auto& qv: qviews) {
+//            if(strcmp(qv->getViewName(), robustParent->getNameInDocument()) == 0) {
+//                return qv;
+//            }
+//        }
+//    }
+
     //If type is dimension we check references first
     TechDraw::DrawViewDimension *dim = 0;
     dim = dynamic_cast<TechDraw::DrawViewDimension *>(myFeat);
-
     if(dim) {
         std::vector<App::DocumentObject *> objs = dim->References2D.getValues();
 
@@ -758,8 +776,12 @@ void QGVPage::setExporting(bool enable)
     QList<QGraphicsItem*> sceneItems = scene()->items();
     for (auto& qgi:sceneItems) {
         QGIViewPart* qgiPart = dynamic_cast<QGIViewPart *>(qgi);
+        QGIRichAnno* qgiRTA  = dynamic_cast<QGIRichAnno *>(qgi);
         if(qgiPart) {
             qgiPart->setExporting(enable);
+        }
+        if (qgiRTA) {
+            qgiRTA->setExporting(enable);
         }
     }
 }
@@ -862,6 +884,15 @@ void QGVPage::postProcessXml(QTemporaryFile& temporaryFile, QString fileName, QS
     // Insert Freecad SVG namespace into namespace declarations
     exportDocElem.setAttribute(QString::fromUtf8("xmlns:freecad"),
                                QString::fromUtf8(FREECAD_SVG_NS_URI));
+    // Insert all namespaces used by TechDraw's page template SVGs
+    exportDocElem.setAttribute(QString::fromUtf8("xmlns:svg"),
+        QString::fromUtf8(SVG_NS_URI));
+    exportDocElem.setAttribute(QString::fromUtf8("xmlns:cc"),
+        QString::fromUtf8(CC_NS_URI));
+    exportDocElem.setAttribute(QString::fromUtf8("xmlns:dc"),
+        QString::fromUtf8(DC_NS_URI));
+    exportDocElem.setAttribute(QString::fromUtf8("xmlns:rdf"),
+        QString::fromUtf8(RDF_NS_URI));
 
     // Create the root group which will host the drawing group and the template group
     QDomElement rootGroup = exportDoc.createElement(QString::fromUtf8("g"));

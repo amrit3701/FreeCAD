@@ -30,21 +30,17 @@ import PathScripts.PathUtils as PathUtils
 import PathScripts.PathGeom as PathGeom
 import Draft
 import math
+import Part
 
 # from PathScripts.PathUtils import waiting_effects
 from PySide import QtCore
 if FreeCAD.GuiUp:
     import FreeCADGui
 
-
 __title__ = "Base class for PathArea based operations."
 __author__ = "sliptonic (Brad Collette)"
 __url__ = "http://www.freecadweb.org"
 __doc__ = "Base class and properties for Path.Area based operations."
-__contributors__ = "russ4262 (Russell Johnson)"
-__createdDate__ = "2017"
-__scriptVersion__ = "2m testing"
-__lastModified__ = "2019-07-20 13:29 CST"
 
 LOGLEVEL = PathLog.Level.INFO
 PathLog.setLevel(LOGLEVEL, PathLog.thisModule())
@@ -53,8 +49,6 @@ if LOGLEVEL is PathLog.Level.DEBUG:
     PathLog.trackModule()
 
 # Qt translation handling
-
-
 def translate(context, text, disambig=None):
     return QtCore.QCoreApplication.translate(context, text, disambig)
 
@@ -67,19 +61,12 @@ class ObjectOp(PathOp.ObjectOp):
     to Path.Area so subclasses only have to provide the shapes for the
     operations.'''
 
-    # These are static while document is open, if it contains a 3D Surface Op
-    initOpFinalDepth = None
-    initOpStartDepth = None
-    initWithRotation = False
-    defValsSet = False
-    docRestored = False
-
     def opFeatures(self, obj):
         '''opFeatures(obj) ... returns the base features supported by all Path.Area based operations.
         The standard feature list is OR'ed with the return value of areaOpFeatures().
         Do not overwrite, implement areaOpFeatures(obj) instead.'''
         # return PathOp.FeatureTool | PathOp.FeatureDepths | PathOp.FeatureStepDown | PathOp.FeatureHeights | PathOp.FeatureStartPoint | self.areaOpFeatures(obj) | PathOp.FeatureRotation
-        return PathOp.FeatureTool | PathOp.FeatureDepths | PathOp.FeatureStepDown | PathOp.FeatureHeights | PathOp.FeatureStartPoint | self.areaOpFeatures(obj) | PathOp.FeatureCoolant 
+        return PathOp.FeatureTool | PathOp.FeatureDepths | PathOp.FeatureStepDown | PathOp.FeatureHeights | PathOp.FeatureStartPoint | self.areaOpFeatures(obj) | PathOp.FeatureCoolant
 
     def areaOpFeatures(self, obj):
         '''areaOpFeatures(obj) ... overwrite to add operation specific features.
@@ -91,6 +78,9 @@ class ObjectOp(PathOp.ObjectOp):
         '''initOperation(obj) ... sets up standard Path.Area properties and calls initAreaOp().
         Do not overwrite, overwrite initAreaOp(obj) instead.'''
         PathLog.track()
+
+        # These are static while document is open, if it contains a 3D Surface Op
+        self.initWithRotation = False
 
         # Debugging
         obj.addProperty("App::PropertyString", "AreaParams", "Path")
@@ -160,10 +150,6 @@ class ObjectOp(PathOp.ObjectOp):
             if hasattr(obj, prop):
                 obj.setEditorMode(prop, 2)
 
-        self.initOpFinalDepth = obj.OpFinalDepth.Value
-        self.initOpStartDepth = obj.OpStartDepth.Value
-        self.docRestored = True
-
         self.setupAdditionalProperties(obj)
         self.areaOpOnDocumentRestored(obj)
 
@@ -221,26 +207,11 @@ class ObjectOp(PathOp.ObjectOp):
                     startDepth = max(xRotRad, yRotRad)
                 finalDepth = -1 * startDepth
 
-            # Manage operation start and final depths
-            if self.docRestored is True:  # This op is NOT the first in the Operations list
-                PathLog.debug("Doc restored")
-                obj.FinalDepth.Value = obj.OpFinalDepth.Value
-                obj.StartDepth.Value = obj.OpStartDepth.Value
-            else:
-                PathLog.debug("New operation")
-                obj.StartDepth.Value = startDepth
-                obj.FinalDepth.Value = finalDepth
-                obj.OpStartDepth.Value = startDepth
-                obj.OpFinalDepth.Value = finalDepth
+            obj.StartDepth.Value = startDepth
+            obj.FinalDepth.Value = finalDepth
+            obj.OpStartDepth.Value = startDepth
+            obj.OpFinalDepth.Value = finalDepth
 
-                if obj.EnableRotation != 'Off':
-                    if self.initOpFinalDepth is None:
-                        self.initOpFinalDepth = finalDepth
-                        PathLog.debug("Saved self.initOpFinalDepth")
-                    if self.initOpStartDepth is None:
-                        self.initOpStartDepth = startDepth
-                        PathLog.debug("Saved self.initOpStartDepth")
-                    self.defValsSet = True
             PathLog.debug("Default OpDepths are Start: {}, and Final: {}".format(obj.OpStartDepth.Value, obj.OpFinalDepth.Value))
             PathLog.debug("Default Depths are Start: {}, and Final: {}".format(startDepth, finalDepth))
 
@@ -309,6 +280,59 @@ class ObjectOp(PathOp.ObjectOp):
 
         return pp, simobj
 
+    def _buildProfileOpenEdges(self, obj, baseShape, isHole, start, getsim):
+        '''_buildPathArea(obj, baseShape, isHole, start, getsim) ... internal function.'''
+        # pylint: disable=unused-argument
+        PathLog.track()
+
+        paths = []
+        heights = [i for i in self.depthparams]
+        PathLog.debug('depths: {}'.format(heights))
+        lstIdx = len(heights) - 1
+        for i in range(0, len(heights)):
+            hWire = Part.Wire(Part.__sortEdges__(baseShape.Edges))
+            hWire.translate(FreeCAD.Vector(0, 0, heights[i] - hWire.BoundBox.ZMin))
+
+            pathParams = {} # pylint: disable=assignment-from-no-return
+            pathParams['shapes'] = [hWire]
+            pathParams['feedrate'] = self.horizFeed
+            pathParams['feedrate_v'] = self.vertFeed
+            pathParams['verbose'] = True
+            pathParams['resume_height'] = obj.SafeHeight.Value
+            pathParams['retraction'] = obj.ClearanceHeight.Value
+            pathParams['return_end'] = True
+            # Note that emitting preambles between moves breaks some dressups and prevents path optimization on some controllers
+            pathParams['preamble'] = False
+            #if not self.areaOpRetractTool(obj):
+            #    pathParams['threshold'] = 2.001 * self.radius
+
+            if self.endVector is None:
+                V = hWire.Wires[0].Vertexes
+                lv = len(V) - 1
+                pathParams['start'] = FreeCAD.Vector(V[0].X, V[0].Y, V[0].Z)
+                if obj.Direction == 'CCW':
+                    pathParams['start'] = FreeCAD.Vector(V[lv].X, V[lv].Y, V[lv].Z)
+            else:
+                pathParams['start'] = self.endVector
+
+            obj.PathParams = str({key: value for key, value in pathParams.items() if key != 'shapes'})
+            PathLog.debug("Path with params: {}".format(obj.PathParams))
+
+            (pp, end_vector) = Path.fromShapes(**pathParams)
+            paths.extend(pp.Commands)
+            PathLog.debug('pp: {}, end vector: {}'.format(pp, end_vector))
+
+        self.endVector = end_vector # pylint: disable=attribute-defined-outside-init
+
+        simobj = None
+        if getsim and False:
+            areaParams['ToolRadius'] = self.radius - self.radius * .005
+            area.setParams(**areaParams)
+            sec = area.makeSections(mode=0, project=False, heights=heights)[-1].getShape()
+            simobj = sec.extrude(FreeCAD.Vector(0, 0, baseobject.BoundBox.ZMax))
+
+        return paths, simobj
+
     def opExecute(self, obj, getsim=False): # pylint: disable=arguments-differ
         '''opExecute(obj, getsim=False) ... implementation of Path.Area ops.
         determines the parameters for _buildPathArea().
@@ -329,20 +353,7 @@ class ObjectOp(PathOp.ObjectOp):
         self.tempObjectNames = []  # pylint: disable=attribute-defined-outside-init
         self.stockBB = PathUtils.findParentJob(obj).Stock.Shape.BoundBox # pylint: disable=attribute-defined-outside-init
         self.useTempJobClones('Delete')  # Clear temporary group and recreate for temp job clones
-
-        # Import OpFinalDepth from pre-existing operation for recompute() scenarios
-        if self.defValsSet is True:
-            PathLog.debug("self.defValsSet is True.")
-            if self.initOpStartDepth is not None:
-                if self.initOpStartDepth != obj.OpStartDepth.Value:
-                    obj.OpStartDepth.Value = self.initOpStartDepth
-                    obj.StartDepth.Value = self.initOpStartDepth
-
-            if self.initOpFinalDepth is not None:
-                if self.initOpFinalDepth != obj.OpFinalDepth.Value:
-                    obj.OpFinalDepth.Value = self.initOpFinalDepth
-                    obj.FinalDepth.Value = self.initOpFinalDepth
-            self.defValsSet = False
+        self.profileEdgesIsOpen = False
 
         if obj.EnableRotation != 'Off':
             # Calculate operation heights based upon rotation radii
@@ -362,11 +373,11 @@ class ObjectOp(PathOp.ObjectOp):
             obj.ClearanceHeight.Value = strDep + self.clrOfset
             obj.SafeHeight.Value = strDep + self.safOfst
 
-            if self.initWithRotation is False:
-                if obj.FinalDepth.Value == obj.OpFinalDepth.Value:
-                    obj.FinalDepth.Value = finDep
-                if obj.StartDepth.Value == obj.OpStartDepth.Value:
-                    obj.StartDepth.Value = strDep
+            #if self.initWithRotation is False:
+            #    if obj.FinalDepth.Value == obj.OpFinalDepth.Value:
+            #        obj.FinalDepth.Value = finDep
+            #    if obj.StartDepth.Value == obj.OpStartDepth.Value:
+            #        obj.StartDepth.Value = strDep
 
             # Create visual axes when debugging.
             if PathLog.getLevel(PathLog.thisModule()) == 4:
@@ -421,9 +432,13 @@ class ObjectOp(PathOp.ObjectOp):
 
             shapes = [j['shape'] for j in jobs]
 
+        if self.profileEdgesIsOpen is True:
+            if PathOp.FeatureStartPoint & self.opFeatures(obj) and obj.UseStartPoint:
+                osp = obj.StartPoint
+                self.commandlist.append(Path.Command('G0', {'X': osp.x, 'Y': osp.y, 'F': self.horizRapid}))
+
         sims = []
         numShapes = len(shapes)
-
         for ns in range(0, numShapes):
             (shape, isHole, sub, angle, axis, strDep, finDep) = shapes[ns] # pylint: disable=unused-variable
             if ns < numShapes - 1:
@@ -442,12 +457,18 @@ class ObjectOp(PathOp.ObjectOp):
                 user_depths=None)
 
             try:
-                (pp, sim) = self._buildPathArea(obj, shape, isHole, start, getsim)
+                if self.profileEdgesIsOpen is True:
+                    (pp, sim) = self._buildProfileOpenEdges(obj, shape, isHole, start, getsim)
+                else:
+                    (pp, sim) = self._buildPathArea(obj, shape, isHole, start, getsim)
             except Exception as e: # pylint: disable=broad-except
                 FreeCAD.Console.PrintError(e)
                 FreeCAD.Console.PrintError("Something unexpected happened. Check project and tool config.")
             else:
-                ppCmds = pp.Commands
+                if self.profileEdgesIsOpen is True:
+                    ppCmds = pp
+                else:
+                    ppCmds = pp.Commands
                 if obj.EnableRotation != 'Off' and self.rotateFlag is True:
                     # Rotate model to index for cut
                     if axis == 'X':
@@ -898,23 +919,6 @@ class ObjectOp(PathOp.ObjectOp):
 
         PathLog.info(translate("Path", "Rotated to inverse angle."))
         return (clnBase, clnStock, angle)
-
-    def calculateStartFinalDepths(self, obj, shape, stock):
-        '''calculateStartFinalDepths(obj, shape, stock)
-            Calculate correct start and final depths for the shape(face) object provided.'''
-        finDep = max(obj.FinalDepth.Value, shape.BoundBox.ZMin)
-        stockTop = stock.Shape.BoundBox.ZMax
-        if obj.EnableRotation == 'Off':
-            strDep = obj.StartDepth.Value
-            if strDep <= finDep:
-                strDep = stockTop
-        else:
-            strDep = min(obj.StartDepth.Value, stockTop)
-            if strDep <= finDep:
-                strDep = stockTop  # self.strDep
-                msg = translate('Path', "Start depth <= face depth.\nIncreased to stock top.")
-                PathLog.error(msg)
-        return (strDep, finDep)
 
     def sortTuplesByIndex(self, TupleList, tagIdx):
         '''sortTuplesByIndex(TupleList, tagIdx)

@@ -26,16 +26,17 @@ __url__ = "http://www.freecadweb.org"
 ## \addtogroup FEM
 #  @{
 
-import subprocess
 import os.path
+import subprocess
 import sys
 
 import FreeCAD
-import femtools.femutils as femutils
 
+from . import writer
 from .. import run
 from .. import settings
-from . import writer
+from femtools import femutils
+from femtools import membertools
 
 
 class Check(run.Check):
@@ -48,7 +49,7 @@ class Check(run.Check):
         self.checkEquations()
 
     def checkMeshType(self):
-        mesh = femutils.get_single_member(self.analysis, "Fem::FemMeshObject")
+        mesh = membertools.get_single_member(self.analysis, "Fem::FemMeshObject")
         if not femutils.is_of_type(mesh, "Fem::FemMeshGmsh"):
             self.report.error(
                 "Unsupported type of mesh. "
@@ -87,7 +88,7 @@ class Prepare(run.Prepare):
 
     def checkHandled(self, w):
         handled = w.getHandledConstraints()
-        allConstraints = femutils.get_member(self.analysis, "Fem::Constraint")
+        allConstraints = membertools.get_member(self.analysis, "Fem::Constraint")
         for obj in set(allConstraints) - handled:
             self.report.warning("Ignored constraint %s." % obj.Label)
 
@@ -133,7 +134,7 @@ class Results(run.Results):
     def run(self):
         if self.solver.ElmerResult is None:
             self._createResults()
-        postPath = os.path.join(self.directory, "case0001.vtu")
+        postPath = self._getResultFile()
         self.solver.ElmerResult.read(postPath)
         self.solver.ElmerResult.getLastPostObject().touch()
         self.solver.Document.recompute()
@@ -143,5 +144,21 @@ class Results(run.Results):
             "Fem::FemPostPipeline", self.solver.Name + "Result")
         self.solver.ElmerResult.Label = self.solver.Label + "Result"
         self.analysis.addObject(self.solver.ElmerResult)
+
+    def _getResultFile(self):
+        postPath = None
+        # elmer post file path changed with version x.x
+        # see https://forum.freecadweb.org/viewtopic.php?f=18&t=42732
+        # workaround
+        possible_post_file_0 = os.path.join(self.directory, "case0001.vtu")
+        possible_post_file_t = os.path.join(self.directory, "case_t0001.vtu")
+        if os.path.isfile(possible_post_file_0):
+            postPath = possible_post_file_0
+        elif os.path.isfile(possible_post_file_t):
+            postPath = possible_post_file_t
+        else:
+            self.report.error("Result file not found.")
+            self.fail()
+        return postPath
 
 ##  @}

@@ -390,7 +390,7 @@ class _TaskPanelFemMeshGmsh:
         self.gmsh_runs = True
         self.console_log("We are going to start ...")
         self.get_active_analysis()
-        import femmesh.gmshtools as gmshtools
+        from femmesh import gmshtools
         gmsh_mesh = gmshtools.GmshTools(self.obj, self.analysis)
         self.console_log("Start Gmsh ...")
         error = ""
@@ -403,10 +403,12 @@ class _TaskPanelFemMeshGmsh:
                 .format(sys.exc_info()[0])
             )
         if error:
+            FreeCAD.Console.PrintMessage("Gmsh had warnings ...\n")
             FreeCAD.Console.PrintMessage("{}\n".format(error))
             self.console_log("Gmsh had warnings ...")
             self.console_log(error, "#FF0000")
         else:
+            FreeCAD.Console.PrintMessage("Clean run of Gmsh\n")
             self.console_log("Clean run of Gmsh")
         self.console_log("Gmsh done!")
         self.form.l_time.setText("Time: {0:4.1f}: ".format(time.time() - self.Start))

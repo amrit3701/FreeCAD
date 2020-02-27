@@ -27,7 +27,7 @@
   </property>
   <property name="windowIcon">
    <iconset resource="Resources/TechDraw.qrc">
-    <normaloff>:/icons/actions/techdraw-mline.svg</normaloff>:/icons/actions/techdraw-mline.svg</iconset>
+    <normaloff>:/icons/actions/techdraw-LeaderLine.svg</normaloff>:/icons/actions/techdraw-LeaderLine.svg</iconset>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout_2">
    <item>
@@ -49,10 +49,29 @@
        <layout class="QVBoxLayout" name="verticalLayout_4">
         <item>
          <layout class="QGridLayout" name="gridLayout">
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_4">
+            <property name="text">
+             <string>Base View</string>
+            </property>
+           </widget>
+          </item>
           <item row="0" column="1">
-           <widget class="QLineEdit" name="leBaseView">
+           <widget class="QTextBrowser" name="tbBaseView">
             <property name="enabled">
-             <bool>false</bool>
+             <bool>true</bool>
+            </property>
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>16777215</width>
+              <height>22</height>
+             </size>
             </property>
             <property name="mouseTracking">
              <bool>false</bool>
@@ -63,12 +82,8 @@
             <property name="acceptDrops">
              <bool>false</bool>
             </property>
-           </widget>
-          </item>
-          <item row="0" column="0">
-           <widget class="QLabel" name="label_4">
-            <property name="text">
-             <string>Base View</string>
+            <property name="verticalScrollBarPolicy">
+             <enum>Qt::ScrollBarAlwaysOff</enum>
             </property>
            </widget>
           </item>
@@ -111,6 +126,11 @@
           </item>
           <item>
            <widget class="QPushButton" name="pbTracker">
+            <property name="toolTip">
+             <string>First pick the start pint of the line,
+then at least a second point.
+You can pick further points to get line segments.</string>
+            </property>
             <property name="text">
              <string>Pick Points</string>
             </property>
@@ -313,6 +333,9 @@
           </item>
           <item row="3" column="1">
            <widget class="Gui::ColorButton" name="cpLineColor">
+            <property name="toolTip">
+             <string>Line color</string>
+            </property>
             <property name="color" stdset="0">
              <color>
               <red>0</red>
@@ -325,16 +348,22 @@
           <item row="4" column="0">
            <widget class="QLabel" name="label_5">
             <property name="text">
-             <string>Weight</string>
+             <string>Width</string>
             </property>
            </widget>
           </item>
           <item row="4" column="1">
-           <widget class="QDoubleSpinBox" name="dsbWeight">
-            <property name="singleStep">
+           <widget class="Gui::QuantitySpinBox" name="dsbWeight" native="true">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
+            <property name="toolTip">
+             <string>Line width</string>
+            </property>
+            <property name="singleStep" stdset="0">
              <double>0.100000000000000</double>
             </property>
-            <property name="value">
+            <property name="value" stdset="0">
              <double>0.500000000000000</double>
             </property>
            </widget>
@@ -348,6 +377,9 @@
           </item>
           <item row="5" column="1">
            <widget class="QComboBox" name="cboxStyle">
+            <property name="toolTip">
+             <string>Line style</string>
+            </property>
             <property name="currentIndex">
              <number>1</number>
             </property>
@@ -358,7 +390,7 @@
             </item>
             <item>
              <property name="text">
-              <string>Solid</string>
+              <string>Continuous</string>
              </property>
             </item>
             <item>
@@ -413,6 +445,11 @@
    <class>Gui::ColorButton</class>
    <extends>QPushButton</extends>
    <header>Gui/Widgets.h</header>
+  </customwidget>
+  <customwidget>
+   <class>Gui::QuantitySpinBox</class>
+   <extends>QWidget</extends>
+   <header>Gui/QuantitySpinBox.h</header>
   </customwidget>
  </customwidgets>
  <resources>

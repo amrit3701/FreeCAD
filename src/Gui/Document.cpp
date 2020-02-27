@@ -287,6 +287,14 @@ bool Document::setEdit(Gui::ViewProvider* p, int ModNum, const char *subname)
         FC_ERR("cannot edit non ViewProviderDocumentObject");
         return false;
     }
+
+    // Fix regression: https://forum.freecadweb.org/viewtopic.php?f=19&t=43629&p=371972#p371972
+    // When an object is already in edit mode a subsequent call for editing is only possible
+    // when resetting the currently edited object.
+    if (d->_editViewProvider) {
+        _resetEdit();
+    }
+
     auto obj = vp->getObject();
     if(!obj->getNameInDocument()) {
         FC_ERR("cannot edit detached object");
@@ -462,7 +470,12 @@ void Document::_resetEdit(void)
         }
 
         d->_editViewProvider->finishEditing();
-        if (d->_editViewProvider->isDerivedFrom(ViewProviderDocumentObject::getClassTypeId())) 
+
+        // Have to check d->_editViewProvider below, because there is a chance
+        // the editing object gets deleted inside the above call to
+        // 'finishEditing()', which will trigger our slotDeletedObject(), which
+        // nullifies _editViewProvider.
+        if (d->_editViewProvider && d->_editViewProvider->isDerivedFrom(ViewProviderDocumentObject::getClassTypeId())) 
             signalResetEdit(*(static_cast<ViewProviderDocumentObject*>(d->_editViewProvider)));
         d->_editViewProvider = 0;
 

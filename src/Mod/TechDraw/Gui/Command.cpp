@@ -30,7 +30,9 @@
 
 #include <vector>
 
+#include <Base/Exception.h>
 #include <Base/Tools.h>
+#include <Base/PyObjectBase.h>
 #include <App/Application.h>
 #include <App/Document.h>
 #include <App/DocumentObject.h>
@@ -1132,7 +1134,7 @@ CmdTechDrawArchView::CmdTechDrawArchView()
 {
     // setting the Gui eye-candy
     sGroup        = QT_TR_NOOP("TechDraw");
-    sMenuText     = QT_TR_NOOP("Insert Section Plane");
+    sMenuText     = QT_TR_NOOP("Insert Arch Workbench Object");
     sToolTipText  = QT_TR_NOOP("Insert a View of a Section Plane from Arch Workbench");
     sWhatsThis    = "TechDraw_NewArch";
     sStatusTip    = sToolTipText;
@@ -1151,6 +1153,43 @@ void CmdTechDrawArchView::activated(int iMsg)
     if (objects.size() != 1) {
         QMessageBox::warning(Gui::getMainWindow(), QObject::tr("Wrong selection"),
             QObject::tr("Select exactly one object."));
+        return;
+    }
+    //if the docObj doesn't have a Proxy property, it definitely isn't an ArchSection
+    App::DocumentObject* frontObj = objects.front();
+    App::Property* proxy = frontObj->getPropertyByName("Proxy");
+    if (proxy == nullptr) {
+        QMessageBox::warning(Gui::getMainWindow(), QObject::tr("Wrong selection"),
+            QObject::tr("Selected object is not ArchSection."));
+        return;
+    }
+    App::PropertyPythonObject* proxyPy = dynamic_cast<App::PropertyPythonObject*>(proxy);
+    Py::Object proxyObj = proxyPy->getValue();
+    std::stringstream ss;
+    bool proceed = false;
+    if (proxyPy != nullptr) {
+        Base::PyGILStateLocker lock;
+        try {
+            if (proxyObj.hasAttr("__module__")) {
+                Py::String mod(proxyObj.getAttr("__module__"));
+                ss <<  (std::string)mod; 
+            }
+            if (ss.str() == "ArchSectionPlane") {
+                proceed = true;
+            }
+        }
+        catch (Py::Exception&) {
+            Base::PyException e; // extract the Python error text
+            e.ReportException();
+            proceed = false;
+        }
+    } else {
+        proceed = false;
+    }
+    
+    if (!proceed) {
+        QMessageBox::warning(Gui::getMainWindow(), QObject::tr("Wrong selection"),
+            QObject::tr("Selected object is not ArchSection."));
         return;
     }
 
@@ -1241,7 +1280,7 @@ CmdTechDrawExportPageSVG::CmdTechDrawExportPageSVG()
   : Command("TechDraw_ExportPageSVG")
 {
     sGroup        = QT_TR_NOOP("File");
-    sMenuText     = QT_TR_NOOP("Export page as SVG");
+    sMenuText     = QT_TR_NOOP("Export Page as SVG");
     sToolTipText  = sMenuText;
     sWhatsThis    = "TechDraw_ExportPageSVG";
     sStatusTip    = sToolTipText;
@@ -1285,7 +1324,7 @@ CmdTechDrawExportPageDXF::CmdTechDrawExportPageDXF()
   : Command("TechDraw_ExportPageDXF")
 {
     sGroup        = QT_TR_NOOP("File");
-    sMenuText     = QT_TR_NOOP("Export page as DXF");
+    sMenuText     = QT_TR_NOOP("Export Page as DXF");
     sToolTipText  = sMenuText;
     sWhatsThis    = "TechDraw_ExportPageDXF";
     sStatusTip    = sToolTipText;

@@ -31,13 +31,16 @@ import os.path
 import subprocess
 import tempfile
 
-from FreeCAD import Units
 from FreeCAD import Console
+from FreeCAD import Units
+
 import Fem
-import femtools.femutils as femutils
-import femmesh.gmshtools as gmshtools
-from .. import settings
 from . import sifio
+from .. import settings
+from femmesh import gmshtools
+from femtools import constants
+from femtools import femutils
+from femtools import membertools
 
 
 _STARTINFO_NAME = "ELMERSOLVER_STARTINFO"
@@ -59,10 +62,10 @@ UNITS = {
 
 
 CONSTS_DEF = {
-    "Gravity": "9.82 m/s^2",
-    "StefanBoltzmann": "5.67e-8 W/(m^2*K^4)",
-    "PermittivityOfVacuum": "8.8542e-12 s^4*A^2/(m*kg)",
-    "BoltzmannConstant": "1.3807e-23 J/K",
+    "Gravity": constants.gravity(),
+    "StefanBoltzmann": constants.stefan_boltzmann(),
+    "PermittivityOfVacuum": constants.permittivity_of_vakuum(),
+    "BoltzmannConstant": constants.boltzmann_constant(),
 }
 
 
@@ -93,7 +96,7 @@ def getConstant(name, dimension):
 class Writer(object):
 
     def __init__(self, solver, directory, testmode=False):
-        self.analysis = femutils.findAnalysisOfMember(solver)
+        self.analysis = solver.getParentGroup()
         self.solver = solver
         self.directory = directory
         self.testmode = testmode
@@ -324,6 +327,7 @@ class Writer(object):
         # s["Calculate Electric Flux"] = equation.CalculateElectricFlux
         s["Calculate Electric Energy"] = equation.CalculateElectricEnergy
         s["Calculate Surface Charge"] = equation.CalculateSurfaceCharge
+        s["Calculate Capacitance Matrix"] = equation.CalculateCapacitanceMatrix
         s["Displace mesh"] = False
         s["Exec Solver"] = "Always"
         s["Stabilize"] = equation.Stabilize
@@ -353,11 +357,18 @@ class Writer(object):
         for obj in self._getMember("Fem::ConstraintElectrostaticPotential"):
             if obj.References:
                 for name in obj.References[0][1]:
-                    if obj.Potential:
-                        potential = getFromUi(obj.Potential, "V", "M*L^2/(T^3 * I)")
-                        self._boundary(name, "Potential", potential)
+                    # https://forum.freecadweb.org/viewtopic.php?f=18&t=41488&start=10#p369454  ff
+                    if obj.PotentialEnabled:
+                        if hasattr(obj, "Potential"):
+                            potential = getFromUi(obj.Potential, "V", "M*L^2/(T^3 * I)")
+                            self._boundary(name, "Potential", potential)
                     if obj.PotentialConstant:
                         self._boundary(name, "Potential Constant", True)
+                    if obj.ElectricInfinity:
+                        self._boundary(name, "Electric Infinity BC", True)
+                    if obj.CapacitanceBodyEnabled:
+                        if hasattr(obj, "CapacitanceBody"):
+                            self._boundary(name, "Capacitance Body", obj.CapacitanceBody)
                 self._handled(obj)
 
     def _handleFluxsolver(self):
@@ -777,10 +788,10 @@ class Writer(object):
         self._builder.addSection(section)
 
     def _getMember(self, t):
-        return femutils.get_member(self.analysis, t)
+        return membertools.get_member(self.analysis, t)
 
     def _getSingleMember(self, t):
-        return femutils.get_single_member(self.analysis, t)
+        return membertools.get_single_member(self.analysis, t)
 
 
 class WriteError(Exception):

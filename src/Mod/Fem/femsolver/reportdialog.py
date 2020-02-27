@@ -26,6 +26,8 @@ __url__ = "http://www.freecadweb.org"
 ## \addtogroup FEM
 #  @{
 
+# it is a Gui only module and should only be imported in Gui mode
+# thus no guard is needed
 from PySide import QtGui
 
 
