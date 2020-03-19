@@ -46,9 +46,11 @@
 #include <Mod/TechDraw/App/DrawViewBalloon.h>
 #include <Mod/TechDraw/App/DrawPage.h>
 #include <Mod/TechDraw/App/DrawUtil.h>
+#include <Mod/TechDraw/App/ArrowPropEnum.h>
 
 #include <Mod/TechDraw/Gui/ui_TaskBalloon.h>
 
+#include "DrawGuiUtil.h"
 #include "QGIViewBalloon.h"
 #include "TaskBalloon.h"
 
@@ -65,7 +67,7 @@ TaskBalloon::TaskBalloon(QGIViewBalloon *parent) :
 
     ui->setupUi(this);
 
-    QString qs = QString::number(parent->dvBalloon->SymbolScale.getValue(), 'f', 2);
+    QString qs = QString::number(parent->dvBalloon->ShapeScale.getValue(), 'f', 2);
     ui->inputScale->setText(qs);
 
     std::string value = parent->dvBalloon->Text.getValue();
@@ -74,12 +76,12 @@ TaskBalloon::TaskBalloon(QGIViewBalloon *parent) :
     ui->inputValue->selectAll();
     QTimer::singleShot(0, ui->inputValue, SLOT(setFocus()));
 
+    DrawGuiUtil::loadArrowBox(ui->comboEndType);
     i = parent->dvBalloon->EndType.getValue();
     ui->comboEndType->setCurrentIndex(i);
 
-    i = parent->dvBalloon->Symbol.getValue();
+    i = parent->dvBalloon->Shape.getValue();
     ui->comboSymbol->setCurrentIndex(i);
-
 }
 
 TaskBalloon::~TaskBalloon()
@@ -87,13 +89,12 @@ TaskBalloon::~TaskBalloon()
     delete ui;
 }
 
-
 bool TaskBalloon::accept()
 {
         m_parent->dvBalloon->Text.setValue(ui->inputValue->text().toUtf8().constData());
-        m_parent->dvBalloon->SymbolScale.setValue(ui->inputScale->text().toDouble());
+        m_parent->dvBalloon->ShapeScale.setValue(ui->inputScale->text().toDouble());
         m_parent->dvBalloon->EndType.setValue(ui->comboEndType->currentIndex());
-        m_parent->dvBalloon->Symbol.setValue(ui->comboSymbol->currentIndex());
+        m_parent->dvBalloon->Shape.setValue(ui->comboSymbol->currentIndex());
         m_parent->updateView(true);
 
     return true;

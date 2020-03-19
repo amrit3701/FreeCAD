@@ -142,6 +142,8 @@ DrawViewPart::DrawViewPart(void) :
     //properties that affect Geometry
     ADD_PROPERTY_TYPE(Source ,(0),group,App::Prop_None,"3D Shape to view");
     Source.setScope(App::LinkScope::Global);
+    Source.setAllowExternal(true);
+
     ADD_PROPERTY_TYPE(Direction ,(0.0,-1.0,0.0),
                       group,App::Prop_None,"Projection Plane normal. The direction you are looking from.");
     ADD_PROPERTY_TYPE(XDirection ,(0.0,0.0,0.0),
@@ -244,6 +246,7 @@ App::DocumentObjectExecReturn *DrawViewPart::execute(void)
         }
         return App::DocumentObject::StdReturn;
     }
+    std::vector<App::DocumentObject*> sources = Source.getValues();
 
     TopoDS_Shape shape = getSourceShape();
     if (shape.IsNull()) {
@@ -335,6 +338,9 @@ void DrawViewPart::partExec(TopoDS_Shape shape)
 {
 //    Base::Console().Message("DVP::partExec()\n");
     geometryObject = makeGeometryForShape(shape);
+    if (geometryObject == nullptr) {
+        return;
+    }
 
 #if MOD_TECHDRAW_HANDLE_FACES
 //    auto start = std::chrono::high_resolution_clock::now();
@@ -347,7 +353,7 @@ void DrawViewPart::partExec(TopoDS_Shape shape)
         }
     }
 #endif //#if MOD_TECHDRAW_HANDLE_FACES
-    std::vector<TechDraw::Vertex*> verts = getVertexGeometry();
+//    std::vector<TechDraw::Vertex*> verts = getVertexGeometry();
     addCosmeticVertexesToGeom();
     addCosmeticEdgesToGeom();
     addCenterLinesToGeom();
@@ -486,6 +492,9 @@ TechDraw::GeometryObject* DrawViewPart::buildGeometryObject(TopoDS_Shape shape, 
 //! make faces from the existing edge geometry
 void DrawViewPart::extractFaces()
 {
+    if (geometryObject == nullptr) {
+        return;
+    }
     geometryObject->clearFaceGeom();
     const std::vector<TechDraw::BaseGeom*>& goEdges =
                        geometryObject->getVisibleFaceEdges(SmoothVisible.getValue(),SeamVisible.getValue());
@@ -614,7 +623,8 @@ std::vector<TechDraw::DrawHatch*> DrawViewPart::getHatches() const
     std::vector<TechDraw::DrawHatch*> result;
     std::vector<App::DocumentObject*> children = getInList();
     for (std::vector<App::DocumentObject*>::iterator it = children.begin(); it != children.end(); ++it) {
-        if ((*it)->getTypeId().isDerivedFrom(DrawHatch::getClassTypeId())) {
+        if ( ((*it)->getTypeId().isDerivedFrom(DrawHatch::getClassTypeId())) && 
+             (!(*it)->isRemoving()) ) {
             TechDraw::DrawHatch* hatch = dynamic_cast<TechDraw::DrawHatch*>(*it);
             result.push_back(hatch);
         }
@@ -627,7 +637,8 @@ std::vector<TechDraw::DrawGeomHatch*> DrawViewPart::getGeomHatches() const
     std::vector<TechDraw::DrawGeomHatch*> result;
     std::vector<App::DocumentObject*> children = getInList();
     for (std::vector<App::DocumentObject*>::iterator it = children.begin(); it != children.end(); ++it) {
-        if ((*it)->getTypeId().isDerivedFrom(DrawGeomHatch::getClassTypeId())) {
+        if ( ((*it)->getTypeId().isDerivedFrom(DrawGeomHatch::getClassTypeId()))  &&
+             (!(*it)->isRemoving()) ) {
             TechDraw::DrawGeomHatch* geom = dynamic_cast<TechDraw::DrawGeomHatch*>(*it);
             result.push_back(geom);
         }
@@ -668,18 +679,29 @@ std::vector<TechDraw::DrawViewBalloon*> DrawViewPart::getBalloons() const
 
 const std::vector<TechDraw::Vertex *> DrawViewPart::getVertexGeometry() const
 {
-    std::vector<TechDraw::Vertex*> gVerts = geometryObject->getVertexGeometry();
-    return gVerts;
+    std::vector<TechDraw::Vertex *> result;
+    if (geometryObject != nullptr) {
+        result = geometryObject->getVertexGeometry();
+    }
+    return result;
 }
 
-const std::vector<TechDraw::Face *> & DrawViewPart::getFaceGeometry() const
+const std::vector<TechDraw::Face *> DrawViewPart::getFaceGeometry() const
 {
-    return geometryObject->getFaceGeometry();
+    std::vector<TechDraw::Face*> result;
+    if (geometryObject != nullptr) {
+        result = geometryObject->getFaceGeometry();
+    }
+    return result;
 }
 
-const std::vector<TechDraw::BaseGeom  *> & DrawViewPart::getEdgeGeometry() const
+const std::vector<TechDraw::BaseGeom*> DrawViewPart::getEdgeGeometry() const
 {
-    return geometryObject->getEdgeGeometry();
+    std::vector<TechDraw::BaseGeom  *> result;
+    if (geometryObject != nullptr) {
+        result = geometryObject->getEdgeGeometry();
+    }
+    return result;
 }
 
 //! returns existing BaseGeom of 2D Edge(idx)
@@ -1113,20 +1135,23 @@ void DrawViewPart::removeReferenceVertex(std::string tag)
 //            delete v;  //??? who deletes v?
         }
     }
+    m_referenceVerts = newRefVerts;
     resetReferenceVerts();  
 }
 
 void DrawViewPart::removeAllReferencesFromGeom()
 {
 //    Base::Console().Message("DVP::removeAllReferencesFromGeom()\n");
-    std::vector<TechDraw::Vertex *> gVerts = getVertexGeometry();
-    std::vector<TechDraw::Vertex *> newVerts;
-    for (auto& gv: gVerts) {
-        if (!gv->reference) {
-            newVerts.push_back(gv);
+    if (!m_referenceVerts.empty()) {
+        std::vector<TechDraw::Vertex *> gVerts = getVertexGeometry();
+        std::vector<TechDraw::Vertex *> newVerts;
+        for (auto& gv: gVerts) {
+            if (!gv->reference) {
+                newVerts.push_back(gv);
+            }
         }
+        getGeometryObject()->setVertexGeometry(newVerts);
     }
-    getGeometryObject()->setVertexGeometry(newVerts);
 }
 
 void DrawViewPart::resetReferenceVerts()
@@ -1437,7 +1462,7 @@ bool DrawViewPart::prefIsoViz(void)
 {
     Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter()
           .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/TechDraw/HLR");
-    bool result = hGrp->GetBool("IsoViz", true); 
+    bool result = hGrp->GetBool("IsoViz", false); 
     return result;
 }
 
@@ -1445,7 +1470,7 @@ bool DrawViewPart::prefHardHid(void)
 {
     Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter()
           .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/TechDraw/HLR");
-    bool result = hGrp->GetBool("HardHid", true); 
+    bool result = hGrp->GetBool("HardHid",  false); 
     return result;
 }
 
@@ -1453,7 +1478,7 @@ bool DrawViewPart::prefSeamHid(void)
 {
     Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter()
           .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/TechDraw/HLR");
-    bool result = hGrp->GetBool("SeamHid", true); 
+    bool result = hGrp->GetBool("SeamHid", false); 
     return result;
 }
 
@@ -1461,7 +1486,7 @@ bool DrawViewPart::prefSmoothHid(void)
 {
     Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter()
           .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/TechDraw/HLR");
-    bool result = hGrp->GetBool("SmoothHid", true); 
+    bool result = hGrp->GetBool("SmoothHid", false); 
     return result;
 }
 
@@ -1469,7 +1494,7 @@ bool DrawViewPart::prefIsoHid(void)
 {
     Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter()
           .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/TechDraw/HLR");
-    bool result = hGrp->GetBool("IsoHid", true); 
+    bool result = hGrp->GetBool("IsoHid", false); 
     return result;
 }
 

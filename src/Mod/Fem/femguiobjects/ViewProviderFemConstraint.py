@@ -1,7 +1,8 @@
 # ***************************************************************************
-# *                                                                         *
 # *   Copyright (c) 2017 Markus Hovorka <m.hovorka@live.de>                 *
 # *   Copyright (c) 2018 Bernd Hahnebach <bernd@bimstatik.org>              *
+# *                                                                         *
+# *   This file is part of the FreeCAD CAx development system.              *
 # *                                                                         *
 # *   This program is free software; you can redistribute it and/or modify  *
 # *   it under the terms of the GNU Lesser General Public License (LGPL)    *
@@ -29,11 +30,14 @@ __url__ = "http://www.freecadweb.org"
 #  \ingroup FEM
 #  \brief FreeCAD _Base ViewProvider for FEM workbench
 
+from pivy import coin
+from six import string_types
+
 import FreeCAD
 import FreeCADGui
+
 import FemGui  # needed to display the icons in TreeView
 
-from pivy import coin
 
 False if FemGui.__name__ else True  # flake8, dummy FemGui usage
 
@@ -44,9 +48,28 @@ class ViewProxy(object):
     def __init__(self, vobj):
         vobj.Proxy = self
 
+    # needs to be overwritten, if no standard icon name is used
+    # see constraint body heat source as an example
+    def getIcon(self):
+        # print(self.Object.Name)
+        """after load from FCStd file, self.icon does not exist, return constant path instead"""
+        # https://forum.freecadweb.org/viewtopic.php?f=18&t=44009
+        if (
+            hasattr(self.Object.Proxy, "Type")
+            and isinstance(self.Object.Proxy.Type, string_types)
+            and self.Object.Proxy.Type.startswith("Fem::")
+        ):
+            return ":/icons/{}.svg".format(self.Object.Proxy.Type.replace("Fem::", "FEM_"))
+        else:
+            FreeCAD.Console.PrintError("No icon returned for {}\n".format(self.Object.Name))
+            FreeCAD.Console.PrintMessage("{}\n".format(self.Object.Proxy.Type))
+            return ""
+
     def attach(self, vobj):
         default = coin.SoGroup()
         vobj.addDisplayMode(default, "Default")
+        self.Object = vobj.Object  # used on various places, claim childreens, get icon, etc.
+        # self.ViewObject = vobj  # not used ATM
 
     def getDisplayModes(self, obj):
         "Return a list of display modes."
@@ -59,11 +82,36 @@ class ViewProxy(object):
     def setDisplayMode(self, mode):
         return mode
 
-    def setEdit(self, vobj, mode=0):
-        # needs to be overwritten if task panel exists
-        # avoid edit mode by return False
-        # https://forum.freecadweb.org/viewtopic.php?t=12139&start=10#p161062
-        return False
+    def setEdit(self, vobj, mode=0, TaskPanel=None, hide_mesh=True):
+        if TaskPanel is None:
+            # avoid edit mode by return False
+            # https://forum.freecadweb.org/viewtopic.php?t=12139&start=10#p161062
+            return False
+        if hide_mesh is True:
+            # hide all FEM meshes and VTK FemPost* objects
+            for o in vobj.Object.Document.Objects:
+                if (
+                    o.isDerivedFrom("Fem::FemMeshObject")
+                    or o.isDerivedFrom("Fem::FemPostPipeline")
+                    or o.isDerivedFrom("Fem::FemPostClipFilter")
+                    or o.isDerivedFrom("Fem::FemPostScalarClipFilter")
+                    or o.isDerivedFrom("Fem::FemPostWarpVectorFilter")
+                    or o.isDerivedFrom("Fem::FemPostDataAlongLineFilter")
+                    or o.isDerivedFrom("Fem::FemPostDataAtPointFilter")
+                    or o.isDerivedFrom("Fem::FemPostCutFilter")
+                    or o.isDerivedFrom("Fem::FemPostDataAlongLineFilter")
+                    or o.isDerivedFrom("Fem::FemPostPlaneFunction")
+                    or o.isDerivedFrom("Fem::FemPostSphereFunction")
+                ):
+                    o.ViewObject.hide()
+        # show task panel
+        task = TaskPanel(vobj.Object)
+        FreeCADGui.Control.showDialog(task)
+        return True
+
+    def unsetEdit(self, vobj, mode=0):
+        FreeCADGui.Control.closeDialog()
+        return True
 
     def doubleClicked(self, vobj):
         guidoc = FreeCADGui.getDocument(vobj.Object.Document)
@@ -77,3 +125,10 @@ class ViewProxy(object):
             QMessageBox.critical(None, "Error in tree view", message)
             FreeCAD.Console.PrintError(message + "\n")
         return True
+
+    # they are needed, see https://forum.freecadweb.org/viewtopic.php?f=18&t=44021
+    def __getstate__(self):
+        return None
+
+    def __setstate__(self, state):
+        return None

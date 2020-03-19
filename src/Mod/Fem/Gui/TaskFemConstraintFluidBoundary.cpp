@@ -132,7 +132,7 @@ void initComboBox(QComboBox* combo, const std::vector<std::string>& textItems, c
 
 /* TRANSLATOR FemGui::TaskFemConstraintFluidBoundary */
 TaskFemConstraintFluidBoundary::TaskFemConstraintFluidBoundary(ViewProviderFemConstraintFluidBoundary *ConstraintView,QWidget *parent)
-    : TaskFemConstraint(ConstraintView, parent, "fem-constraint-fluid-boundary")
+    : TaskFemConstraint(ConstraintView, parent, "FEM_ConstraintFluidBoundary")
     , dimension(-1)
 {
     // we need a separate container widget to add all controls to
@@ -738,7 +738,6 @@ void TaskFemConstraintFluidBoundary::addToSelection()
         QMessageBox::warning(this, tr("Selection error"), tr("Nothing selected!"));
         return;
     }
-
     Fem::ConstraintFluidBoundary* pcConstraint = static_cast<Fem::ConstraintFluidBoundary*>(ConstraintView->getObject());
     std::vector<App::DocumentObject*> Objects = pcConstraint->References.getValues();
     std::vector<std::string> SubElements = pcConstraint->References.getSubValues();
@@ -748,7 +747,6 @@ void TaskFemConstraintFluidBoundary::addToSelection()
             QMessageBox::warning(this, tr("Selection error"), tr("Selected object is not a part!"));
             return;
         }
-
         const std::vector<std::string>& subNames = it->getSubNames();
         App::DocumentObject* obj = it->getObject();
         for (size_t subIt = 0; subIt < subNames.size(); ++subIt) {// for every selected sub element
@@ -761,7 +759,6 @@ void TaskFemConstraintFluidBoundary::addToSelection()
                     addMe = false;
                 }
             }
-
             // limit constraint such that only vertexes or faces or edges can be used depending on what was selected first
             std::string searchStr;
             if (subNames[subIt].find("Vertex") != std::string::npos)
@@ -787,7 +784,6 @@ void TaskFemConstraintFluidBoundary::addToSelection()
             }
         }
     }
-
     //Update UI
     pcConstraint->References.setValues(Objects, SubElements);
     updateUI();
@@ -800,7 +796,6 @@ void TaskFemConstraintFluidBoundary::removeFromSelection()
         QMessageBox::warning(this, tr("Selection error"), tr("Nothing selected!"));
         return;
     }
-
     Fem::ConstraintFluidBoundary* pcConstraint = static_cast<Fem::ConstraintFluidBoundary*>(ConstraintView->getObject());
     std::vector<App::DocumentObject*> Objects = pcConstraint->References.getValues();
     std::vector<std::string> SubElements = pcConstraint->References.getSubValues();
@@ -810,7 +805,6 @@ void TaskFemConstraintFluidBoundary::removeFromSelection()
             QMessageBox::warning(this, tr("Selection error"), tr("Selected object is not a part!"));
             return;
         }
-
         const std::vector<std::string>& subNames = it->getSubNames();
         App::DocumentObject* obj = it->getObject();
 
@@ -825,14 +819,12 @@ void TaskFemConstraintFluidBoundary::removeFromSelection()
             }
         }
     }
-
     std::sort(itemsToDel.begin(), itemsToDel.end());
     while (itemsToDel.size() > 0) {
         Objects.erase(Objects.begin() + itemsToDel.back());
         SubElements.erase(SubElements.begin() + itemsToDel.back());
         itemsToDel.pop_back();
     }
-
     //Update UI
     {
         QSignalBlocker block(ui->listReferences);
@@ -841,7 +833,6 @@ void TaskFemConstraintFluidBoundary::removeFromSelection()
             ui->listReferences->addItem(makeRefText(Objects[j], SubElements[j]));
         }
     }
-
     pcConstraint->References.setValues(Objects, SubElements);
     updateUI();
 }

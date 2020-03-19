@@ -1,6 +1,8 @@
 # ***************************************************************************
 # *   Copyright (c) 2017 Markus Hovorka <m.hovorka@live.de>                 *
 # *                                                                         *
+# *   This file is part of the FreeCAD CAx development system.              *
+# *                                                                         *
 # *   This program is free software; you can redistribute it and/or modify  *
 # *   it under the terms of the GNU Lesser General Public License (LGPL)    *
 # *   as published by the Free Software Foundation; either version 2 of     *
@@ -93,6 +95,6 @@ class ViewProxy(solverbase.ViewProxy):
     """Proxy for FemSolverElmers View Provider."""
 
     def getIcon(self):
-        return ":/icons/fem-solver-elmer.svg"
+        return ":/icons/FEM_SolverElmer.svg"
 
 ##  @}

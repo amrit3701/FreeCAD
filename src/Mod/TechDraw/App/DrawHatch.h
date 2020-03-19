@@ -50,6 +50,8 @@ public:
     virtual const char* getViewProviderName(void) const override {
         return "TechDrawGui::ViewProviderHatch";
     }
+    virtual void unsetupObject(void) override;
+
     //return PyObject as DrawHatchPy
     virtual PyObject *getPyObject(void) override;
 
@@ -59,7 +61,7 @@ public:
     bool removeSub(int i);
     bool empty(void);
     static bool faceIsHatched(int i,std::vector<TechDraw::DrawHatch*> hatchObjs);
-
+    static std::string prefSvgHatch(void);
 
 protected:
     void onChanged(const App::Property* prop) override;
@@ -67,7 +69,6 @@ protected:
     virtual void setupObject() override;
     void setupSvgIncluded(void);
     void replaceSvgIncluded(std::string newSvgFile);
-    void copyFile(std::string inSpec, std::string outSpec);
 
 private:
 

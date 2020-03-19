@@ -4401,56 +4401,6 @@ class AddToGroup():
                         pass
 
 
-class AddPoint(Modifier):
-    """The Draft_AddPoint FreeCAD command definition"""
-
-    def __init__(self):
-        self.running = False
-
-    def GetResources(self):
-        return {'Pixmap'  : 'Draft_AddPoint',
-                'MenuText': QtCore.QT_TRANSLATE_NOOP("Draft_AddPoint", "Add Point"),
-                'ToolTip': QtCore.QT_TRANSLATE_NOOP("Draft_AddPoint", "Adds a point to an existing Wire or B-spline")}
-
-    def IsActive(self):
-        if FreeCADGui.Selection.getSelection():
-            return True
-        else:
-            return False
-
-    def Activated(self):
-        selection = FreeCADGui.Selection.getSelection()
-        if selection:
-            if (Draft.getType(selection[0]) in ['Wire','BSpline']):
-                FreeCADGui.runCommand("Draft_Edit")
-                FreeCADGui.draftToolBar.vertUi(True)
-
-
-class DelPoint(Modifier):
-    """The Draft_DelPoint FreeCAD command definition"""
-
-    def __init__(self):
-        self.running = False
-
-    def GetResources(self):
-        return {'Pixmap'  : 'Draft_DelPoint',
-                'MenuText': QtCore.QT_TRANSLATE_NOOP("Draft_DelPoint", "Remove Point"),
-                'ToolTip': QtCore.QT_TRANSLATE_NOOP("Draft_DelPoint", "Removes a point from an existing Wire or B-spline")}
-
-    def IsActive(self):
-        if FreeCADGui.Selection.getSelection():
-            return True
-        else:
-            return False
-
-    def Activated(self):
-        selection = FreeCADGui.Selection.getSelection()
-        if selection:
-            if (Draft.getType(selection[0]) in ['Wire','BSpline']):
-                FreeCADGui.runCommand("Draft_Edit")
-                FreeCADGui.draftToolBar.vertUi(False)
-
-
 class WireToBSpline(Modifier):
     """The Draft_Wire2BSpline FreeCAD command definition"""
 
@@ -4489,7 +4439,8 @@ class WireToBSpline(Modifier):
                             if (Draft.getType(self.obj) == 'Wire'):
                                 n = Draft.makeBSpline(self.Points, self.closed, self.pl)
                             elif (Draft.getType(self.obj) == 'BSpline'):
-                                n = Draft.makeWire(self.Points, self.closed, self.pl)
+                                self.bs2wire = True
+                                n = Draft.makeWire(self.Points, self.closed, self.pl, None, None, self.bs2wire)
                             if n:
                                 Draft.formatObject(n,self.obj)
                                 self.doc.recompute()
@@ -4634,9 +4585,9 @@ class Draft2Sketch(Modifier):
 class Array(Modifier):
     """The Shape2DView FreeCAD command definition"""
 
-    def __init__(self,useLink=False):
+    def __init__(self,use_link=False):
         Modifier.__init__(self)
-        self.useLink = useLink
+        self.use_link = use_link
 
     def GetResources(self):
         return {'Pixmap'  : 'Draft_Array',
@@ -4660,7 +4611,7 @@ class Array(Modifier):
             obj = FreeCADGui.Selection.getSelection()[0]
             FreeCADGui.addModule("Draft")
             self.commit(translate("draft","Array"),
-                        ['obj = Draft.makeArray(FreeCAD.ActiveDocument.{},FreeCAD.Vector(1,0,0),FreeCAD.Vector(0,1,0),2,2,useLink={})'.format(obj.Name,self.useLink),
+                        ['obj = Draft.makeArray(FreeCAD.ActiveDocument.{},FreeCAD.Vector(1,0,0),FreeCAD.Vector(0,1,0),2,2,use_link={})'.format(obj.Name,self.use_link),
                          'Draft.autogroup(obj)',
                          'FreeCAD.ActiveDocument.recompute()'])
         self.finish()
@@ -4679,9 +4630,9 @@ class LinkArray(Array):
 class PathArray(Modifier):
     """The PathArray FreeCAD command definition"""
 
-    def __init__(self,useLink=False):
+    def __init__(self,use_link=False):
         Modifier.__init__(self)
-        self.useLink = useLink
+        self.use_link = use_link
 
     def GetResources(self):
         return {'Pixmap'  : 'Draft_PathArray',
@@ -4711,7 +4662,7 @@ class PathArray(Modifier):
             defCount = 4
             defAlign = False
             FreeCAD.ActiveDocument.openTransaction("PathArray")
-            Draft.makePathArray(base,path,defCount,defXlate,defAlign,pathsubs,useLink=self.useLink)
+            Draft.makePathArray(base,path,defCount,defXlate,defAlign,pathsubs,use_link=self.use_link)
             FreeCAD.ActiveDocument.commitTransaction()
             FreeCAD.ActiveDocument.recompute()                                  # feature won't appear until recompute.
         self.finish()
@@ -4905,7 +4856,8 @@ class ToggleGrid():
         return {'Pixmap'  : 'Draft_Grid',
                 'Accel' : "G,R",
                 'MenuText': QtCore.QT_TRANSLATE_NOOP("Draft_ToggleGrid", "Toggle Grid"),
-                'ToolTip' : QtCore.QT_TRANSLATE_NOOP("Draft_ToggleGrid", "Toggles the Draft grid on/off")}
+                'ToolTip' : QtCore.QT_TRANSLATE_NOOP("Draft_ToggleGrid", "Toggles the Draft grid on/off"),
+                'CmdType' : 'ForEdit'}
 
     def Activated(self):
         if hasattr(FreeCADGui,"Snapper"):
@@ -5423,19 +5375,15 @@ class Draft_Arc_3Points:
                 self.tracker.on()
             FreeCADGui.Snapper.getPoint(last=self.points[-1],callback=self.getPoint,movecallback=self.drawArc)
         else:
-            import Part
-            e = Part.Arc(self.points[0],self.points[1],self.points[2]).toShape()
+            import draftobjects.arc_3points as arc3
             if Draft.getParam("UsePartPrimitives",False):
-                o = FreeCAD.ActiveDocument.addObject("Part::Feature","Arc")
-                o.Shape = e
+                arc3.make_arc_3points([self.points[0],
+                                       self.points[1],
+                                       self.points[2]], primitive=True)
             else:
-                radius = e.Curve.Radius
-                rot = FreeCAD.Rotation(e.Curve.XAxis,e.Curve.YAxis,e.Curve.Axis,"ZXY")
-                placement = FreeCAD.Placement(e.Curve.Center,rot)
-                start = e.FirstParameter
-                end = e.LastParameter/math.pi*180
-                c = Draft.makeCircle(radius,placement,startangle=start,endangle=end)
-                Draft.autogroup(c)
+                arc3.make_arc_3points([self.points[0],
+                                       self.points[1],
+                                       self.points[2]], primitive=False)
             self.tracker.off()
             FreeCAD.ActiveDocument.recompute()
 
@@ -5684,8 +5632,6 @@ FreeCADGui.addCommand('Draft_Trimex',Trimex())
 FreeCADGui.addCommand('Draft_Scale',Scale())
 FreeCADGui.addCommand('Draft_Drawing',Drawing())
 FreeCADGui.addCommand('Draft_SubelementHighlight', SubelementHighlight())
-FreeCADGui.addCommand('Draft_AddPoint',AddPoint())
-FreeCADGui.addCommand('Draft_DelPoint',DelPoint())
 FreeCADGui.addCommand('Draft_WireToBSpline',WireToBSpline())
 FreeCADGui.addCommand('Draft_Draft2Sketch',Draft2Sketch())
 FreeCADGui.addCommand('Draft_Array',Array())

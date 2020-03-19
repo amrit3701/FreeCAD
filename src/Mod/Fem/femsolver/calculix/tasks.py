@@ -2,6 +2,8 @@
 # *   Copyright (c) 2017 Markus Hovorka <m.hovorka@live.de>                 *
 # *   Copyright (c) 2017 Bernd Hahnebach <bernd@bimstatik.org>              *
 # *                                                                         *
+# *   This file is part of the FreeCAD CAx development system.              *
+# *                                                                         *
 # *   This program is free software; you can redistribute it and/or modify  *
 # *   it under the terms of the GNU Lesser General Public License (LGPL)    *
 # *   as published by the Free Software Foundation; either version 2 of     *
@@ -116,7 +118,7 @@ class Results(run.Results):
             if femutils.is_of_type(m.Mesh, "Fem::FemMeshResult"):
                 self.analysis.Document.removeObject(m.Mesh.Name)
             self.analysis.Document.removeObject(m.Name)
-        FreeCAD.ActiveDocument.recompute()
+        self.analysis.Document.recompute()
 
     def load_results_ccxfrd(self):
         frd_result_file = os.path.join(

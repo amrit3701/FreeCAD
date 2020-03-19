@@ -1,5 +1,8 @@
 # ***************************************************************************
 # *   Copyright (c) 2017 Markus Hovorka <m.hovorka@live.de>                 *
+# *   Copyright (c) 2017 Bernd Hahnebach <bernd@bimstatik.org>              *
+# *                                                                         *
+# *   This file is part of the FreeCAD CAx development system.              *
 # *                                                                         *
 # *   This program is free software; you can redistribute it and/or modify  *
 # *   it under the terms of the GNU Lesser General Public License (LGPL)    *
@@ -112,7 +115,7 @@ class ViewProxy(object):
     def doubleClicked(self, vobj):
         if Gui.Control.activeDialog():
             Gui.Control.closeDialog()
-        Gui.ActiveDocument.setEdit(vobj.Object.Name)
+        vobj.Document.setEdit(vobj.Object.Name)
         return True
 
     def attach(self, vobj):

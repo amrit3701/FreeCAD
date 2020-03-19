@@ -1,6 +1,8 @@
 # ***************************************************************************
 # *   Copyright (c) 2017 Markus Hovorka <m.hovorka@live.de>                 *
 # *                                                                         *
+# *   This file is part of the FreeCAD CAx development system.              *
+# *                                                                         *
 # *   This program is free software; you can redistribute it and/or modify  *
 # *   it under the terms of the GNU Lesser General Public License (LGPL)    *
 # *   as published by the Free Software Foundation; either version 2 of     *
@@ -201,7 +203,7 @@ class Writer(object):
     def _handleHeat(self):
         activeIn = []
         for equation in self.solver.Group:
-            if femutils.is_of_type(equation, "Fem::FemEquationElmerHeat"):
+            if femutils.is_of_type(equation, "Fem::EquationElmerHeat"):
                 if equation.References:
                     activeIn = equation.References[0][1]
                 else:
@@ -302,7 +304,7 @@ class Writer(object):
     def _handleElectrostatic(self):
         activeIn = []
         for equation in self.solver.Group:
-            if femutils.is_of_type(equation, "Fem::FemEquationElmerElectrostatic"):
+            if femutils.is_of_type(equation, "Fem::EquationElmerElectrostatic"):
                 if equation.References:
                     activeIn = equation.References[0][1]
                 else:
@@ -374,7 +376,7 @@ class Writer(object):
     def _handleFluxsolver(self):
         activeIn = []
         for equation in self.solver.Group:
-            if femutils.is_of_type(equation, "Fem::FemEquationElmerFluxsolver"):
+            if femutils.is_of_type(equation, "Fem::EquationElmerFluxsolver"):
                 if equation.References:
                     activeIn = equation.References[0][1]
                 else:
@@ -395,7 +397,7 @@ class Writer(object):
     def _handleElasticity(self):
         activeIn = []
         for equation in self.solver.Group:
-            if femutils.is_of_type(equation, "Fem::FemEquationElmerElasticity"):
+            if femutils.is_of_type(equation, "Fem::EquationElmerElasticity"):
                 if equation.References:
                     activeIn = equation.References[0][1]
                 else:
@@ -555,7 +557,7 @@ class Writer(object):
     def _handleFlow(self):
         activeIn = []
         for equation in self.solver.Group:
-            if femutils.is_of_type(equation, "Fem::FemEquationElmerFlow"):
+            if femutils.is_of_type(equation, "Fem::EquationElmerFlow"):
                 if equation.References:
                     activeIn = equation.References[0][1]
                 else:

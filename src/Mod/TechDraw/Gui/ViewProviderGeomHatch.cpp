@@ -181,13 +181,12 @@ void ViewProviderGeomHatch::updateGraphic(void)
    }
 }
 
-
 void ViewProviderGeomHatch::getParameters(void)
 {
     Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter()
         .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/TechDraw/Colors");
     App::Color fcColor;
-    fcColor.setPackedValue(hGrp->GetUnsigned("Hatch", 0x00FF0000));
+    fcColor.setPackedValue(hGrp->GetUnsigned("GeomHatch", 0x00FF0000)); 
     ColorPattern.setValue(fcColor);
 
     hGrp = App::GetApplication().GetUserParameter().GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/TechDraw/Decorations");
@@ -196,6 +195,14 @@ void ViewProviderGeomHatch::getParameters(void)
     double weight = lg->getWeight("Graphic");
     delete lg;                                                    //Coverity CID 174667
     WeightPattern.setValue(weight);
+}
+
+bool ViewProviderGeomHatch::canDelete(App::DocumentObject *obj) const
+{
+    // deletion of hatches don't destroy anything
+    // thus we can pass this action
+    Q_UNUSED(obj)
+    return true;
 }
 
 TechDraw::DrawGeomHatch* ViewProviderGeomHatch::getViewObject() const
