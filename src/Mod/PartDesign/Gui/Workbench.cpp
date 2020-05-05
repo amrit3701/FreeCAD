@@ -175,7 +175,6 @@ void Workbench::setupContextMenu(const char* recipient, Gui::MenuItem* item) con
         body = PartDesignGui::getBodyFor (feature, false, false, assertModern);
         // lote of assertion so feature should be marked as a tip
         if ( selection.size () == 1 && feature && (
-            feature->isDerivedFrom ( PartDesign::Body::getClassTypeId () ) ||
             ( feature->isDerivedFrom ( PartDesign::Feature::getClassTypeId () ) && body ) ||
             ( feature->isDerivedFrom ( Part::Feature::getClassTypeId () ) && body &&
               body->BaseFeature.getValue() == feature )
@@ -510,9 +509,10 @@ Gui::MenuItem* Workbench::setupMenuBar() const
           << "PartDesign_Boolean"
           << "Separator"
           //<< "PartDesign_Hole"
-          << "PartDesign_InvoluteGear"
-          << "Separator"
-          << "PartDesign_Migrate";
+          << "PartDesign_Migrate"
+          << "PartDesign_Sprocket"
+          << "PartDesign_InvoluteGear";
+
 
     // For 0.13 a couple of python packages like numpy, matplotlib and others
     // are not deployed with the installer on Windows. Thus, the WizardShaft is

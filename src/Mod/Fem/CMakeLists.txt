@@ -72,6 +72,7 @@ SET(FemInOut_SRCS
     feminout/importCcxFrdResults.py
     feminout/importFenicsMesh.py
     feminout/importInpMesh.py
+    feminout/importPyMesh.py
     feminout/importToolsFem.py
     feminout/importVTKResults.py
     feminout/importYamlJsonMesh.py
@@ -221,12 +222,13 @@ SET(FemTestsMesh_SRCS
 
 SET(FemTools_SRCS
     femtools/__init__.py
-    femtools/membertools.py
     femtools/ccxtools.py
     femtools/checksanalysis.py
     femtools/constants.py
     femtools/errors.py
     femtools/femutils.py
+    femtools/geomtools.py
+    femtools/membertools.py
     femtools/tokrules.py
 )
 
@@ -337,6 +339,7 @@ SET(FemGuiScripts_SRCS
     femguiobjects/_ViewProviderFemResultMechanical.py
     femguiobjects/_ViewProviderFemSolverCalculix.py
     femguiobjects/FemSelectionWidgets.py
+    femguiobjects/ViewProviderBaseObject.py
     femguiobjects/ViewProviderFemConstraint.py
 )
 

@@ -28,6 +28,19 @@ setup()
 
 """
 
+# Nonlinear material example, plate with hole.
+
+# https://forum.freecadweb.org/viewtopic.php?f=24&t=31997&start=30
+# https://forum.freecadweb.org/viewtopic.php?t=33974&start=90
+# https://forum.freecadweb.org/viewtopic.php?t=35893
+
+# plate: 400x200x10 mm
+# hole: diameter 100 mm (half cross section)
+# load: 130 MPa tension
+# linear material: Steel, E = 210000 MPa, my = 0.3
+# nonlinear material: '240.0, 0.0' to '270.0, 0.025'
+# TODO nonlinear material: give more information, use values from harry
+# TODO compare results with example from HarryvL
 
 import FreeCAD
 from FreeCAD import Vector as vec
@@ -48,27 +61,12 @@ def init_doc(doc=None):
 
 
 def setup(doc=None, solvertype="ccxtools"):
-    """ Nonlinear material example, plate with hole.
-
-    https://forum.freecadweb.org/viewtopic.php?f=24&t=31997&start=30
-    https://forum.freecadweb.org/viewtopic.php?t=33974&start=90
-    https://forum.freecadweb.org/viewtopic.php?t=35893
-
-    plate: 400x200x10 mm
-    hole: diameter 100 mm (half cross section)
-    load: 130 MPa tension
-    linear material: Steel, E = 210000 MPa, my = 0.3
-    nonlinear material: '240.0, 0.0' to '270.0, 0.025'
-    TODO nonlinear material: give more information, use values from harry
-    TODO compare results with example from HarryvL
-
-    """
+    # setup model
 
     if doc is None:
         doc = init_doc()
 
     # geometry objects
-
     v1 = vec(-200, -100, 0)
     v2 = vec(200, -100, 0)
     v3 = vec(200, 100, 0)
@@ -85,9 +83,8 @@ def setup(doc=None, solvertype="ccxtools"):
     doc.recompute()
 
     if FreeCAD.GuiUp:
-        import FreeCADGui
         geom_obj.ViewObject.Document.activeView().viewAxonometric()
-        FreeCADGui.SendMsgToActiveView("ViewFit")
+        geom_obj.ViewObject.Document.activeView().fitAll()
 
     # analysis
     analysis = ObjectsFem.makeAnalysis(doc, "Analysis")

@@ -32,10 +32,12 @@
 #include <Base/Console.h>
 #include <Base/Parameter.h>
 
+//#include <Mod/TechDraw/App/Preferences.h>
 #include <Mod/TechDraw/App/DrawUtil.h>
 
 #include <qmath.h>
 #include "Rez.h"
+#include "PreferencesGui.h"
 #include "QGIView.h"
 #include "QGISectionLine.h"
 
@@ -275,22 +277,26 @@ void QGISectionLine::setFont(QFont f, double fsize)
     m_symSize = fsize;
 }
 
+void QGISectionLine::setSectionColor(QColor c)
+{
+    setColor(c);
+}
 
 QColor QGISectionLine::getSectionColor()
 {
-    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter()
-        .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/TechDraw/Colors");
-    App::Color fcColor = App::Color((uint32_t) hGrp->GetUnsigned("SectionColor", 0x00000000));
-    return fcColor.asValue<QColor>();
+    return PreferencesGui::sectionLineQColor();
 }
 
 //SectionLineStyle
+void QGISectionLine::setSectionStyle(int style)
+{
+    Qt::PenStyle sectStyle = static_cast<Qt::PenStyle> (style);
+    setStyle(sectStyle);
+}
+
 Qt::PenStyle QGISectionLine::getSectionStyle()
 {
-    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter().GetGroup("BaseApp")->
-                                         GetGroup("Preferences")->GetGroup("Mod/TechDraw/Decorations");
-    Qt::PenStyle sectStyle = static_cast<Qt::PenStyle> (hGrp->GetInt("SectionLine", 2));
-    return sectStyle;
+    return PreferencesGui::sectionLineStyle();
 }
 
 //ASME("traditional") vs ISO("reference arrow method") arrows
@@ -348,7 +354,12 @@ void QGISectionLine::setTools()
 //    m_arrow2->setPen(m_pen);
 //    m_arrow1->setBrush(m_brush);
 //    m_arrow2->setBrush(m_brush);
+    
+    m_arrow1->setNormalColor(m_colCurrent);
+    m_arrow1->setFillColor(m_colCurrent);
     m_arrow1->setPrettyNormal();
+    m_arrow2->setNormalColor(m_colCurrent);
+    m_arrow2->setFillColor(m_colCurrent);
     m_arrow2->setPrettyNormal();
 
     m_symbol1->setDefaultTextColor(m_colCurrent);

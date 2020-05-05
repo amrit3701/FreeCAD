@@ -1,8 +1,3 @@
-"""Provide the Draft ArrayTools command to group the other array tools."""
-## @package gui_arrays
-# \ingroup DRAFT
-# \brief Provide the Draft ArrayTools command to group the other array tools.
-
 # ***************************************************************************
 # *   (c) 2020 Eliud Cabrera Castillo <e.cabrera-castillo@tum.de>           *
 # *                                                                         *
@@ -25,32 +20,56 @@
 # *   USA                                                                   *
 # *                                                                         *
 # ***************************************************************************
-import FreeCAD as App
-import FreeCADGui as Gui
+"""Provide the Draft ArrayTools command to group the other array tools."""
+## @package gui_arrays
+# \ingroup DRAFT
+# \brief Provide the Draft ArrayTools command to group the other array tools.
+
 from PySide.QtCore import QT_TRANSLATE_NOOP
 
+import FreeCADGui as Gui
+import Draft_rc
+import draftguitools.gui_circulararray
+import draftguitools.gui_orthoarray
+import draftguitools.gui_patharray
+import draftguitools.gui_pointarray
+import draftguitools.gui_polararray
 
-class ArrayGroupCommand:
+# The module is used to prevent complaints from code checkers (flake8)
+bool(Draft_rc.__name__)
+bool(draftguitools.gui_circulararray.__name__)
+bool(draftguitools.gui_orthoarray.__name__)
+bool(draftguitools.gui_patharray.__name__)
+bool(draftguitools.gui_pointarray.__name__)
+bool(draftguitools.gui_polararray.__name__)
+
+
+class ArrayGroup:
     """Gui command for the group of array tools."""
 
     def GetCommands(self):
         """Tuple of array commands."""
-        return tuple(["Draft_OrthoArray",
-                      "Draft_PolarArray", "Draft_CircularArray",
-                      "Draft_PathArray", "Draft_PathLinkArray",
-                      "Draft_PointArray"])
+        return ("Draft_OrthoArray",
+                "Draft_PolarArray", "Draft_CircularArray",
+                "Draft_PathArray", "Draft_PathLinkArray",
+                "Draft_PointArray")
 
     def GetResources(self):
-        """Add menu and tooltip."""
+        """Set icon, menu and tooltip."""
         _tooltip = ("Create various types of arrays, "
                     "including rectangular, polar, circular, "
                     "path, and point")
-        return {'MenuText': QT_TRANSLATE_NOOP("Draft", "Array tools"),
-                'ToolTip': QT_TRANSLATE_NOOP("Arch", _tooltip)}
+
+        return {'Pixmap': 'Draft_Array',
+                'MenuText': QT_TRANSLATE_NOOP("Draft", "Array tools"),
+                'ToolTip': QT_TRANSLATE_NOOP("Draft", _tooltip)}
 
     def IsActive(self):
-        """Be active only when a document is active."""
-        return App.ActiveDocument is not None
+        """Return True when this command should be available."""
+        if Gui.activeDocument():
+            return True
+        else:
+            return False
 
 
-Gui.addCommand('Draft_ArrayTools', ArrayGroupCommand())
+Gui.addCommand('Draft_ArrayTools', ArrayGroup())

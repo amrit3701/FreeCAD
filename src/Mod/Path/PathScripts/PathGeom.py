@@ -23,13 +23,16 @@
 # ***************************************************************************
 
 import FreeCAD
-import Part
 import Path
 import PathScripts.PathLog as PathLog
 import math
 
 from FreeCAD import Vector
 from PySide import QtCore
+
+# lazily loaded modules
+from lazy_loader.lazy_loader import LazyLoader
+Part = LazyLoader('Part', globals(), 'Part')
 
 __title__ = "PathGeom - geometry utilities for Path"
 __author__ = "sliptonic (Brad Collette)"
@@ -313,6 +316,9 @@ def edgeForCmd(cmd, startPoint):
     """edgeForCmd(cmd, startPoint).
     Returns an Edge representing the given command, assuming a given startPoint."""
 
+    PathLog.debug("cmd: {}".format(cmd))
+    PathLog.debug("startpoint {}".format(startPoint))
+
     endPoint = commandEndPoint(cmd, startPoint)
     if (cmd.Name in CmdMoveStraight) or (cmd.Name in CmdMoveRapid):
         if pointsCoincide(startPoint, endPoint):
@@ -343,6 +349,10 @@ def edgeForCmd(cmd, startPoint):
         if isRoughly(startPoint.z, endPoint.z):
             midPoint = center + Vector(math.cos(angle), math.sin(angle), 0) * R
             PathLog.debug("arc: (%.2f, %.2f) -> (%.2f, %.2f) -> (%.2f, %.2f)" % (startPoint.x, startPoint.y, midPoint.x, midPoint.y, endPoint.x, endPoint.y))
+            PathLog.debug("StartPoint:{}".format(startPoint))
+            PathLog.debug("MidPoint:{}".format(midPoint))
+            PathLog.debug("EndPoint:{}".format(endPoint))
+
             return Part.Edge(Part.Arc(startPoint, midPoint, endPoint))
 
         # It's a Helix

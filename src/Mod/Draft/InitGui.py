@@ -1,4 +1,3 @@
-"""Initialization of the Draft workbench (graphical interface)."""
 # ***************************************************************************
 # *   Copyright (c) 2009 Yorik van Havre <yorik@uncreated.net>              *
 # *                                                                         *
@@ -19,7 +18,10 @@
 # *   USA                                                                   *
 # *                                                                         *
 # ***************************************************************************
+"""Initialization of the Draft workbench (graphical interface)."""
+
 import os
+
 import FreeCAD
 import FreeCADGui
 
@@ -80,10 +82,6 @@ class DraftWorkbench(FreeCADGui.Workbench):
             import DraftTools
             import DraftGui
             import DraftFillet
-            from draftguitools import gui_circulararray
-            from draftguitools import gui_polararray
-            from draftguitools import gui_orthoarray
-            from draftguitools import gui_arrays
             FreeCADGui.addLanguagePath(":/translations")
             FreeCADGui.addIconPath(":/icons")
         except Exception as exc:
@@ -100,11 +98,13 @@ class DraftWorkbench(FreeCADGui.Workbench):
         self.context_commands = it.get_draft_context_commands()
         self.line_commands = it.get_draft_line_commands()
         self.utility_commands = it.get_draft_utility_commands()
+        self.utility_small = it.get_draft_small_commands()
 
         # Set up toolbars
         self.appendToolbar(QT_TRANSLATE_NOOP("Draft", "Draft creation tools"), self.drawing_commands)
         self.appendToolbar(QT_TRANSLATE_NOOP("Draft", "Draft annotation tools"), self.annotation_commands)
         self.appendToolbar(QT_TRANSLATE_NOOP("Draft", "Draft modification tools"), self.modification_commands)
+        self.appendToolbar(QT_TRANSLATE_NOOP("Draft", "Draft utility tools"), self.utility_small)
 
         # Set up menus
         self.appendMenu(QT_TRANSLATE_NOOP("Draft", "&Drafting"), self.drawing_commands)
@@ -116,6 +116,7 @@ class DraftWorkbench(FreeCADGui.Workbench):
         if hasattr(FreeCADGui, "draftToolBar"):
             if not hasattr(FreeCADGui.draftToolBar, "loadedPreferences"):
                 FreeCADGui.addPreferencePage(":/ui/preferences-draft.ui", QT_TRANSLATE_NOOP("Draft", "Draft"))
+                FreeCADGui.addPreferencePage(":/ui/preferences-draftinterface.ui", QT_TRANSLATE_NOOP("Draft", "Draft"))
                 FreeCADGui.addPreferencePage(":/ui/preferences-draftsnap.ui", QT_TRANSLATE_NOOP("Draft", "Draft"))
                 FreeCADGui.addPreferencePage(":/ui/preferences-draftvisual.ui", QT_TRANSLATE_NOOP("Draft", "Draft"))
                 FreeCADGui.addPreferencePage(":/ui/preferences-drafttexts.ui", QT_TRANSLATE_NOOP("Draft", "Draft"))
@@ -129,6 +130,8 @@ class DraftWorkbench(FreeCADGui.Workbench):
             FreeCADGui.draftToolBar.Activated()
         if hasattr(FreeCADGui, "Snapper"):
             FreeCADGui.Snapper.show()
+            import draftutils.init_draft_statusbar as dsb
+            dsb.show_draft_statusbar()
         FreeCAD.Console.PrintLog("Draft workbench activated.\n")
 
     def Deactivated(self):
@@ -137,6 +140,8 @@ class DraftWorkbench(FreeCADGui.Workbench):
             FreeCADGui.draftToolBar.Deactivated()
         if hasattr(FreeCADGui, "Snapper"):
             FreeCADGui.Snapper.hide()
+            import draftutils.init_draft_statusbar as dsb
+            dsb.hide_draft_statusbar()
         FreeCAD.Console.PrintLog("Draft workbench deactivated.\n")
 
     def ContextMenu(self, recipient):
@@ -150,8 +155,15 @@ class DraftWorkbench(FreeCADGui.Workbench):
                 else:
                     self.appendContextMenu("Draft", self.drawing_commands)
             else:
-                if FreeCAD.activeDraftCommand.featureName == translate("draft","Line"):
-                    # BUG: line subcommands are not usable while another command is active
+                if FreeCAD.activeDraftCommand.featureName in (translate("draft", "Line"),
+                                                              translate("draft", "Wire"),
+                                                              translate("draft", "Polyline"),
+                                                              translate("draft", "BSpline"),
+                                                              translate("draft", "BezCurve"),
+                                                              translate("draft", "CubicBezCurve")):
+                    # BUG: the line subcommands are in fact listed
+                    # in the context menu, but they are de-activated
+                    # so they don't work.
                     self.appendContextMenu("", self.line_commands)
         else:
             if FreeCADGui.Selection.getSelection():
@@ -173,4 +185,4 @@ FreeCADGui.addPreferencePage(":/ui/preferences-dwg.ui", QT_TRANSLATE_NOOP("Draft
 FreeCADGui.addPreferencePage(":/ui/preferences-svg.ui", QT_TRANSLATE_NOOP("Draft", "Import-Export"))
 FreeCADGui.addPreferencePage(":/ui/preferences-oca.ui", QT_TRANSLATE_NOOP("Draft", "Import-Export"))
 
-FreeCAD.__unit_test__ += ["TestDraft"]
+FreeCAD.__unit_test__ += ["TestDraftGui"]

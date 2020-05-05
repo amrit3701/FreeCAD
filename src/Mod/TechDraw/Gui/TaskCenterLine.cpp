@@ -29,6 +29,7 @@
 
 #endif // #ifndef _PreComp_
 
+#include <QButtonGroup>
 #include <QStatusBar>
 #include <QGraphicsScene>
 
@@ -56,6 +57,7 @@
 #include <Mod/TechDraw/Gui/ui_TaskCenterLine.h>
 
 #include "DrawGuiStd.h"
+#include "PreferencesGui.h"
 #include "QGVPage.h"
 #include "QGIView.h"
 #include "QGIPrimPath.h"
@@ -73,15 +75,16 @@ using namespace TechDrawGui;
 //ctor for edit
 TaskCenterLine::TaskCenterLine(TechDraw::DrawViewPart* partFeat,
                                TechDraw::DrawPage* page,
-                               std::string edgeName) :
+                               std::string edgeName,
+                               bool editMode) :
     ui(new Ui_TaskCenterLine),
     m_partFeat(partFeat),
     m_basePage(page),
     m_createMode(false),
     m_edgeName(edgeName),
     m_type(0),          //0 - Face, 1 - 2 Lines, 2 - 2 points
-    m_mode(0)           //0 - vertical, 1 - horizontal, 2 - aligned
-
+    m_mode(0),           //0 - vertical, 1 - horizontal, 2 - aligned
+    m_editMode(editMode)
 {
 //    Base::Console().Message("TCL::TCL() - edit mode\n");
     ui->setupUi(this);
@@ -103,14 +106,16 @@ TaskCenterLine::TaskCenterLine(TechDraw::DrawViewPart* partFeat,
 //ctor for creation
 TaskCenterLine::TaskCenterLine(TechDraw::DrawViewPart* partFeat,
                                TechDraw::DrawPage* page,
-                               std::vector<std::string> subNames) :
+                               std::vector<std::string> subNames,
+                               bool editMode) :
     ui(new Ui_TaskCenterLine),
     m_partFeat(partFeat),
     m_basePage(page),
     m_createMode(true),
     m_subNames(subNames),
     m_type(0),          //0 - Face, 1 - 2 Lines, 2 - 2 points
-    m_mode(0)           //0 - vertical, 1 - horizontal, 2 - aligned
+    m_mode(0),           //0 - vertical, 1 - horizontal, 2 - aligned
+    m_editMode(editMode)
 {
 //    Base::Console().Message("TCL::TCL() - create mode\n");
     if ( (m_basePage == nullptr) ||
@@ -133,6 +138,7 @@ TaskCenterLine::TaskCenterLine(TechDraw::DrawViewPart* partFeat,
         Base::Console().Error("TaskCenterLine - unknown geometry type: %s.  Can not proceed.\n", geomType.c_str());
         return;
     }
+
     setUiPrimary();
 }
 
@@ -171,6 +177,8 @@ void TaskCenterLine::setUiPrimary()
     ui->dsbWeight->setValue(getCenterWidth());
     ui->cboxStyle->setCurrentIndex(getCenterStyle() - 1);
 
+    ui->qsbVertShift->setUnit(Base::Unit::Length);
+    ui->qsbHorizShift->setUnit(Base::Unit::Length);
     Base::Quantity qVal;
     qVal.setUnit(Base::Unit::Length);
     qVal.setValue(getExtendBy());
@@ -181,10 +189,12 @@ void TaskCenterLine::setUiPrimary()
     ui->qsbRotate->setValue(qAngle);
     int precision = Base::UnitsApi::getDecimals();
     ui->qsbRotate->setDecimals(precision);
+
     if (m_type == 0) // if face, then aligned is not possible
         ui->rbAligned->setEnabled(false);
     else
         ui->rbAligned->setEnabled(true);
+
     if (m_type == 1) // only if line, feature is enabled
         ui->cbFlip->setEnabled(true);
     else
@@ -201,8 +211,11 @@ void TaskCenterLine::setUiEdit()
         ui->lstSubList->addItem(listItem);
     }
     ui->cpLineColor->setColor(m_cl->m_format.m_color.asValue<QColor>());
+    connect(ui->cpLineColor, SIGNAL(changed()), this, SLOT(onColorChanged()));
     ui->dsbWeight->setValue(m_cl->m_format.m_weight);
+    connect(ui->dsbWeight, SIGNAL(valueChanged(double)), this, SLOT(onWeightChanged()));
     ui->cboxStyle->setCurrentIndex(m_cl->m_format.m_style - 1);
+    connect(ui->cboxStyle, SIGNAL(currentIndexChanged(int)), this, SLOT(onStyleChanged()));
 
     ui->rbVertical->setChecked(false);
     ui->rbHorizontal->setChecked(false);
@@ -222,10 +235,13 @@ void TaskCenterLine::setUiEdit()
     qVal.setUnit(Base::Unit::Length);
     qVal.setValue(m_cl->m_vShift);
     ui->qsbVertShift->setValue(qVal);
+    connect(ui->qsbVertShift, SIGNAL(valueChanged(double)), this, SLOT(onShiftVertChanged()));
     qVal.setValue(m_cl->m_hShift);
     ui->qsbHorizShift->setValue(qVal);
+    connect(ui->qsbHorizShift, SIGNAL(valueChanged(double)), this, SLOT(onShiftHorizChanged()));
     qVal.setValue(m_cl->m_extendBy);
     ui->qsbExtend->setValue(qVal);
+    connect(ui->qsbExtend, SIGNAL(valueChanged(double)), this, SLOT(onExtendChanged()));
 
     Base::Quantity qAngle;
     qAngle.setUnit(Base::Unit::Angle);
@@ -233,16 +249,84 @@ void TaskCenterLine::setUiEdit()
     int precision = Base::UnitsApi::getDecimals();
     ui->qsbRotate->setDecimals(precision);
     ui->qsbRotate->setValue(m_cl->m_rotate);
+    connect(ui->qsbRotate, SIGNAL(valueChanged(double)), this, SLOT(onRotationChanged()));
 
     if (m_cl->m_flip2Line)
         ui->cbFlip->setChecked(true);
     else
         ui->cbFlip->setChecked(false);
+
     if (m_cl->m_type == 1) // only if line, feature is enabled
         ui->cbFlip->setEnabled(true);
     else
         ui->cbFlip->setEnabled(false);
+    connect(ui->cbFlip, SIGNAL(toggled(bool)), this, SLOT(onFlipChanged()));
+
+    // connect the Orientation radio group box
+    connect(ui->bgOrientation, SIGNAL(buttonClicked(int)), this, SLOT(onOrientationChanged()));
 }
+
+void TaskCenterLine::onOrientationChanged()
+{
+    if (ui->rbVertical->isChecked())
+        m_cl->m_mode = CenterLine::CLMODE::VERTICAL;
+    else if (ui->rbHorizontal->isChecked())
+        m_cl->m_mode = CenterLine::CLMODE::HORIZONTAL;
+    else if (ui->rbAligned->isChecked())
+        m_cl->m_mode = CenterLine::CLMODE::ALIGNED;
+    m_partFeat->recomputeFeature();
+}
+
+void TaskCenterLine::onShiftHorizChanged()
+{
+    m_cl->m_hShift = ui->qsbHorizShift->rawValue();
+    m_partFeat->recomputeFeature();
+}
+
+void TaskCenterLine::onShiftVertChanged()
+{
+    m_cl->m_vShift = ui->qsbVertShift->rawValue();
+    m_partFeat->recomputeFeature();
+}
+
+void TaskCenterLine::onRotationChanged()
+{
+    m_cl->m_rotate = ui->qsbRotate->rawValue();
+    m_partFeat->recomputeFeature();
+}
+
+void TaskCenterLine::onExtendChanged()
+{
+    m_cl->m_extendBy = ui->qsbExtend->rawValue();
+    m_partFeat->recomputeFeature();
+}
+
+void TaskCenterLine::onColorChanged()
+{
+    App::Color ac;
+    ac.setValue<QColor>(ui->cpLineColor->color());
+    m_cl->m_format.m_color.setValue<QColor>(ui->cpLineColor->color());
+    m_partFeat->recomputeFeature();
+}
+
+void TaskCenterLine::onWeightChanged()
+{
+    m_cl->m_format.m_weight = ui->dsbWeight->value().getValue();
+    m_partFeat->recomputeFeature();
+}
+
+void TaskCenterLine::onStyleChanged()
+{
+    m_cl->m_format.m_style = ui->cboxStyle->currentIndex() + 1;
+    m_partFeat->recomputeFeature();
+}
+
+void TaskCenterLine::onFlipChanged()
+{
+    m_cl->m_flip2Line = ui->cbFlip->isChecked();
+    m_partFeat->recomputeFeature();
+}
+
 
 //******************************************************************************
 void TaskCenterLine::createCenterLine(void)
@@ -264,18 +348,20 @@ void TaskCenterLine::createCenterLine(void)
         m_mode = CenterLine::CLMODE::ALIGNED;
     }
 
+    bool flip = ui->cbFlip->isChecked();
     TechDraw::CenterLine* cl = CenterLine::CenterLineBuilder(m_partFeat,
                                                              m_subNames,
-                                                             m_mode);
+                                                             m_mode,
+                                                             flip);
     if (cl != nullptr) {
         cl->setShifts(hShift, vShift);
         cl->setExtend(extendBy);
         cl->setRotate(rotate);
-        cl->m_flip2Line = ui->cbFlip->checkState();
+        cl->m_flip2Line = ui->cbFlip->isChecked();
         App::Color ac;
         ac.setValue<QColor>(ui->cpLineColor->color());
         cl->m_format.m_color = ac;
-        cl->m_format.m_weight = ui->dsbWeight->value();
+        cl->m_format.m_weight = ui->dsbWeight->value().getValue();
         cl->m_format.m_style = ui->cboxStyle->currentIndex() + 1;  //Qt Styles start at 0:NoLine
         cl->m_format.m_visible = true;
         m_partFeat->addCenterLine(cl);
@@ -293,7 +379,7 @@ void TaskCenterLine::updateCenterLine(void)
 //    Base::Console().Message("TCL::updateCenterLine()\n");
     Gui::Command::openCommand("Edit CenterLine");
     m_cl->m_format.m_color.setValue<QColor>(ui->cpLineColor->color() );
-    m_cl->m_format.m_weight = ui->dsbWeight->value();
+    m_cl->m_format.m_weight = ui->dsbWeight->value().getValue();
     m_cl->m_format.m_style = ui->cboxStyle->currentIndex() + 1;
     m_cl->m_format.m_visible = true;
 
@@ -310,7 +396,7 @@ void TaskCenterLine::updateCenterLine(void)
     m_cl->m_hShift = ui->qsbHorizShift->rawValue();
     m_cl->m_extendBy = ui->qsbExtend->rawValue();
     m_cl->m_type = m_type;
-    m_cl->m_flip2Line = ui->cbFlip->checkState();
+    m_cl->m_flip2Line = ui->cbFlip->isChecked();
     m_partFeat->replaceCenterLine(m_cl);
     m_partFeat->refreshCLGeoms();
     m_partFeat->requestPaint();
@@ -334,9 +420,7 @@ void TaskCenterLine::enableTaskButtons(bool b)
 
 double TaskCenterLine::getCenterWidth()
 {
-    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter().GetGroup("BaseApp")->
-                                                    GetGroup("Preferences")->GetGroup("Mod/TechDraw/Decorations");
-    std::string lgName = hGrp->GetASCII("LineGroup","FC 0.70mm");
+    std::string lgName = Preferences::lineGroup();
     auto lg = TechDraw::LineGroup::lineGroupFactory(lgName);
 
     double width = lg->getWeight("Graphic");
@@ -359,10 +443,7 @@ Qt::PenStyle TaskCenterLine::getCenterStyle()
 
 QColor TaskCenterLine::getCenterColor()
 {
-    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter()
-        .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/TechDraw/Decorations");
-    App::Color fcColor = App::Color((uint32_t) hGrp->GetUnsigned("CenterColor", 0x00000000));
-    return fcColor.asValue<QColor>();
+    return PreferencesGui::centerQColor();
 }
 
 double TaskCenterLine::getExtendBy(void)
@@ -419,10 +500,11 @@ bool TaskCenterLine::reject()
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 TaskDlgCenterLine::TaskDlgCenterLine(TechDraw::DrawViewPart* partFeat,
                                      TechDraw::DrawPage* page,
-                                     std::vector<std::string> subNames)
+                                     std::vector<std::string> subNames,
+                                     bool editMode)
     : TaskDialog()
 {
-    widget  = new TaskCenterLine(partFeat,page,subNames);
+    widget  = new TaskCenterLine(partFeat,page,subNames, editMode);
     taskbox = new Gui::TaskView::TaskBox(Gui::BitmapFactory().pixmap("actions/techdraw-facecenterline"),
                                              widget->windowTitle(), true, 0);
     taskbox->groupLayout()->addWidget(widget);
@@ -431,10 +513,11 @@ TaskDlgCenterLine::TaskDlgCenterLine(TechDraw::DrawViewPart* partFeat,
 
 TaskDlgCenterLine::TaskDlgCenterLine(TechDraw::DrawViewPart* partFeat,
                                      TechDraw::DrawPage* page,
-                                     std::string edgeName)
+                                     std::string edgeName,
+                                     bool editMode)
     : TaskDialog()
 {
-    widget  = new TaskCenterLine(partFeat,page, edgeName);
+    widget  = new TaskCenterLine(partFeat,page, edgeName, editMode);
     taskbox = new Gui::TaskView::TaskBox(Gui::BitmapFactory().pixmap("actions/techdraw-facecenterline"),
                                              widget->windowTitle(), true, 0);
     taskbox->groupLayout()->addWidget(widget);

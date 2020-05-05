@@ -972,7 +972,7 @@ SbBool View3DInventorViewer::containsViewProvider(const ViewProvider* vp) const
 {
     SoSearchAction sa;
     sa.setNode(vp->getRoot());
-    sa.setSearchingAll(true);
+    sa.setSearchingAll(false);
     sa.apply(getSoRenderManager()->getSceneGraph());
     return sa.getPath() != nullptr;
 }
@@ -1248,6 +1248,19 @@ void View3DInventorViewer::updateOverrideMode(const std::string& mode)
         return;
 
     overrideMode = mode;
+
+    if (mode == "No Shading") {
+        this->shading = false;
+        this->getSoRenderManager()->setRenderMode(SoRenderManager::AS_IS);
+    }
+    else if (mode == "Hidden Line") {
+        this->shading = true;
+        this->getSoRenderManager()->setRenderMode(SoRenderManager::HIDDEN_LINE);
+    }
+    else {
+        this->shading = true;
+        this->getSoRenderManager()->setRenderMode(SoRenderManager::AS_IS);
+    }
 }
 
 void View3DInventorViewer::setViewportCB(void*, SoAction* action)
@@ -1332,22 +1345,27 @@ bool View3DInventorViewer::isEnabledVBO() const
 
 void View3DInventorViewer::setRenderCache(int mode)
 {
-    if(mode<0) {
+    if (mode<0) {
         ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath
             ("User parameter:BaseApp/Preferences/View");
-        int setting = hGrp->GetInt("RenderCache",0);
-        if(mode==-2) {
-            if(pcViewProviderRoot && setting!=1)
+
+        int setting = hGrp->GetInt("RenderCache", 0);
+        if (mode == -2) {
+            if (pcViewProviderRoot && setting != 1)
                 pcViewProviderRoot->renderCaching = SoSeparator::ON;
             mode = 2;
-        }else{
-            if(pcViewProviderRoot)
+        }
+        else {
+            if (pcViewProviderRoot)
                 pcViewProviderRoot->renderCaching = SoSeparator::AUTO;
             mode = setting;
         }
     }
+
     SoFCSeparator::setCacheMode(
-            mode==0?SoSeparator::AUTO:(mode==1?SoSeparator::ON:SoSeparator::OFF));
+            mode == 0 ? SoSeparator::AUTO :
+           (mode == 1 ? SoSeparator::ON : SoSeparator::OFF)
+    );
 }
 
 void View3DInventorViewer::setEnabledNaviCube(bool on)

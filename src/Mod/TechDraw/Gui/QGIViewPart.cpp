@@ -60,9 +60,11 @@
 #include <Mod/TechDraw/App/DrawProjGroupItem.h>
 #include <Mod/TechDraw/App/Geometry.h>
 #include <Mod/TechDraw/App/Cosmetic.h>
+//#include <Mod/TechDraw/App/Preferences.h>
 
 #include "Rez.h"
 #include "ZVALUE.h"
+#include "PreferencesGui.h"
 #include "QGIFace.h"
 #include "QGIEdge.h"
 #include "QGIVertex.h"
@@ -441,11 +443,11 @@ void QGIViewPart::draw() {
 
 void QGIViewPart::drawViewPart()
 {
-//    Base::Console().Message("QGIVP::DVP()\n");
     auto viewPart( dynamic_cast<TechDraw::DrawViewPart *>(getViewObject()) );
     if ( viewPart == nullptr ) {
         return;
     }
+//    Base::Console().Message("QGIVP::DVP() - %s / %s\n", viewPart->getNameInDocument(), viewPart->Label.getValue());
     if (!viewPart->hasGeometry()) {
         removePrimitives();                      //clean the slate
         removeDecorations();
@@ -498,7 +500,7 @@ void QGIViewPart::drawViewPart()
                         if (hatchScale > 0.0) {
                             newFace->setHatchScale(fGeom->ScalePattern.getValue());
                         }
-                        newFace->setHatchFile(fGeom->FilePattern.getValue());
+                        newFace->setHatchFile(fGeom->PatIncluded.getValue());
                         Gui::ViewProvider* gvp = QGIView::getViewProvider(fGeom);
                         ViewProviderGeomHatch* geomVp = dynamic_cast<ViewProviderGeomHatch*>(gvp);
                         if (geomVp != nullptr) {
@@ -508,7 +510,7 @@ void QGIViewPart::drawViewPart()
                     }
                 }
             } else if (fHatch) {
-                if (!fHatch->HatchPattern.isEmpty()) {
+                if (!fHatch->SvgIncluded.isEmpty()) {
                     if (getExporting()) {
                         newFace->hideSvg(true);
                         newFace->isHatched(false);
@@ -517,7 +519,7 @@ void QGIViewPart::drawViewPart()
                         newFace->hideSvg(false);
                         newFace->isHatched(true);
                         newFace->setFillMode(QGIFace::FromFile);
-                        newFace->setHatchFile(fHatch->HatchPattern.getValue());
+                        newFace->setHatchFile(fHatch->SvgIncluded.getValue());
                         Gui::ViewProvider* gvp = QGIView::getViewProvider(fHatch);
                         ViewProviderHatch* hatchVp = dynamic_cast<ViewProviderHatch*>(gvp);
                         if (hatchVp != nullptr) {
@@ -540,11 +542,7 @@ void QGIViewPart::drawViewPart()
 #endif //#if MOD_TECHDRAW_HANDLE_FACES
 
     // Draw Edges
-    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter().GetGroup("BaseApp")->
-                                         GetGroup("Preferences")->GetGroup("Mod/TechDraw/Colors");
-    App::Color fcEdgeColor;
-    fcEdgeColor.setPackedValue(hGrp->GetUnsigned("NormalColor", 0x00000000));
-    QColor edgeColor = fcEdgeColor.asValue<QColor>();
+    QColor edgeColor = PreferencesGui::normalQColor();
 
     const std::vector<TechDraw::BaseGeom *> &geoms = viewPart->getEdgeGeometry();
     std::vector<TechDraw::BaseGeom *>::const_iterator itGeom = geoms.begin();
@@ -623,14 +621,10 @@ void QGIViewPart::drawViewPart()
 
 
     // Draw Vertexs:
-    hGrp = App::GetApplication().GetUserParameter().GetGroup("BaseApp")->
+    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter().GetGroup("BaseApp")->
                                          GetGroup("Preferences")->GetGroup("Mod/TechDraw/General");
     double vertexScaleFactor = hGrp->GetFloat("VertexScale", 3.0);
-    hGrp = App::GetApplication().GetUserParameter().GetGroup("BaseApp")->
-                                         GetGroup("Preferences")->GetGroup("Mod/TechDraw/Decorations");
-    App::Color fcColor;
-    fcColor.setPackedValue(hGrp->GetUnsigned("VertexColor", 0x00000000));
-    QColor vertexColor = fcColor.asValue<QColor>();
+    QColor vertexColor = PreferencesGui::vertexQColor();
 
     bool showVertices = true;
     bool showCenterMarks = true;
@@ -843,11 +837,12 @@ void QGIViewPart::drawSectionLine(TechDraw::DrawViewSection* viewSection, bool b
         return;
     }
 
-
     if (b) {
         QGISectionLine* sectionLine = new QGISectionLine();
         addToGroup(sectionLine);
         sectionLine->setSymbol(const_cast<char*>(viewSection->SectionSymbol.getValue()));
+        sectionLine->setSectionStyle(vp->SectionLineStyle.getValue());
+        sectionLine->setSectionColor(vp->SectionLineColor.getValue().asValue<QColor>());
 
         //TODO: handle oblique section lines?
         //find smallest internal angle(normalDir,get?Dir()) and use -1*get?Dir() +/- angle
@@ -906,7 +901,8 @@ void QGIViewPart::drawSectionLine(TechDraw::DrawViewSection* viewSection, bool b
         double sectionFudge = Rez::guiX(10.0);
         double xVal, yVal;
 //        double fontSize = getPrefFontSize();
-        double fontSize = getDimFontSize();
+//        double fontSize = getDimFontSize();
+        double fontSize = Preferences::dimFontSizeMM();
         if (horiz)  {
             double width = Rez::guiX(viewPart->getBoxX());
             double height = Rez::guiX(viewPart->getBoxY());
@@ -1010,11 +1006,14 @@ void QGIViewPart::drawHighlight(TechDraw::DrawViewDetail* viewDetail, bool b)
     }
 
     if (b) {
-        double fontSize = getPrefFontSize();
+//        double fontSize = getPrefFontSize();
+        double fontSize = Preferences::labelFontSizeMM();
         QGIHighlight* highlight = new QGIHighlight();
         addToGroup(highlight);
         highlight->setPos(0.0,0.0);   //sb setPos(center.x,center.y)?
         highlight->setReference(const_cast<char*>(viewDetail->Reference.getValue()));
+        highlight->setStyle((Qt::PenStyle)vp->HighlightLineStyle.getValue());
+        highlight->setColor(vp->HighlightLineColor.getValue().asValue<QColor>());
 
         Base::Vector3d center = viewDetail->AnchorPoint.getValue() * viewPart->getScale();
 

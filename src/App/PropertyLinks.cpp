@@ -2670,7 +2670,7 @@ public:
         if(path.isEmpty() || path!=docPath) {
             FC_LOG("document '" << doc.getName() << "' path changed");
             auto me = shared_from_this();
-            auto ret = _DocInfoMap.insert(std::make_pair(path,me));
+            auto ret = _DocInfoMap.insert(std::make_pair(docPath,me));
             if(!ret.second) {
                 // is that even possible?
                 FC_WARN("document '" << doc.getName() << "' path exists, detach");
@@ -4335,6 +4335,14 @@ void PropertyXLinkList::setPyObject(PyObject *value)
     catch (Base::Exception&) {}
 
     PropertyXLinkSubList::setPyObject(value);
+}
+
+//for consistency with PropertyLinkList
+const std::vector<App::DocumentObject*> PropertyXLinkList::getValues(void) const
+{
+    std::vector<DocumentObject*> xLinks;
+    getLinks(xLinks);
+    return(xLinks);
 }
 
 //**************************************************************************

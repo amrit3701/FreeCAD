@@ -21,9 +21,6 @@
 # *                                                                         *
 # ***************************************************************************
 
-# contact example shell to shell elements
-# https://forum.freecadweb.org/viewtopic.php?f=18&t=42228
-# based on https://forum.freecadweb.org/viewtopic.php?f=18&t=42228#p359488
 # to run the example use:
 """
 from femexamples.constraint_contact_shell_shell import setup
@@ -31,6 +28,9 @@ setup()
 
 """
 
+# contact example shell to shell elements
+# https://forum.freecadweb.org/viewtopic.php?f=18&t=42228
+# based on https://forum.freecadweb.org/viewtopic.php?f=18&t=42228#p359488
 
 import FreeCAD
 
@@ -95,8 +95,8 @@ def setup(doc=None, solvertype="ccxtools"):
         upper_tube.ViewObject.hide()
 
     # compound out of bool frag and lower tube
-    goem_obj = doc.addObject("Part::Compound", "AllGeomCompound")
-    goem_obj.Links = [boolfrag, lower_tube]
+    geom_obj = doc.addObject("Part::Compound", "AllGeomCompound")
+    geom_obj.Links = [boolfrag, lower_tube]
 
     # line for load direction
     sh_load_line = Part.makeLine(v_force_pt, FreeCAD.Vector(0, 150, 475))
@@ -109,9 +109,8 @@ def setup(doc=None, solvertype="ccxtools"):
     doc.recompute()
 
     if FreeCAD.GuiUp:
-        import FreeCADGui
-        goem_obj.ViewObject.Document.activeView().viewAxonometric()
-        FreeCADGui.SendMsgToActiveView("ViewFit")
+        geom_obj.ViewObject.Document.activeView().viewAxonometric()
+        geom_obj.ViewObject.Document.activeView().fitAll()
 
     # analysis
     analysis = ObjectsFem.makeAnalysis(doc, "Analysis")

@@ -54,6 +54,7 @@
 #include <Mod/TechDraw/App/CosmeticVertexPy.h>
 
 #include "DrawUtil.h"
+#include "Preferences.h"
 #include "GeometryObject.h"
 #include "Geometry.h"
 #include "DrawViewPart.h"
@@ -105,9 +106,7 @@ std::string LineFormat::toString(void) const
 //static preference getters.
 double LineFormat::getDefEdgeWidth()
 {
-    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter().GetGroup("BaseApp")->
-                                                    GetGroup("Preferences")->GetGroup("Mod/TechDraw/Decorations");
-    std::string lgName = hGrp->GetASCII("LineGroup","FC 0.70mm");
+    std::string lgName = Preferences::lineGroup();
     auto lg = TechDraw::LineGroup::lineGroupFactory(lgName);
 
     double width = lg->getWeight("Graphic");
@@ -117,11 +116,7 @@ double LineFormat::getDefEdgeWidth()
 
 App::Color LineFormat::getDefEdgeColor()
 {
-    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter()
-        .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/TechDraw/Colors");
-    App::Color fcColor;
-    fcColor.setPackedValue(hGrp->GetUnsigned("NormalColor", 0x00000000));  //black
-    return fcColor;
+    return Preferences::normalColor();
 }
 
 int LineFormat::getDefEdgeStyle()
@@ -139,14 +134,9 @@ TYPESYSTEM_SOURCE(TechDraw::CosmeticVertex, Base::Persistence)
 CosmeticVertex::CosmeticVertex() : TechDraw::Vertex()
 {
     point(Base::Vector3d(0.0, 0.0, 0.0));
-    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter().GetGroup("BaseApp")->
-                                         GetGroup("Preferences")->GetGroup("Mod/TechDraw/Decorations");
-    App::Color fcColor;
-    fcColor.setPackedValue(hGrp->GetUnsigned("VertexColor", 0x00000000));
-
     permaPoint = Base::Vector3d(0.0, 0.0, 0.0);
     linkGeom = -1;
-    color = fcColor;
+    color = Preferences::vertexColor();
     size  = 3.0;
     style = 1;
     visible = true;
@@ -172,14 +162,9 @@ CosmeticVertex::CosmeticVertex(const TechDraw::CosmeticVertex* cv) : TechDraw::V
 
 CosmeticVertex::CosmeticVertex(Base::Vector3d loc) : TechDraw::Vertex(loc)
 {
-    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter().GetGroup("BaseApp")->
-                                         GetGroup("Preferences")->GetGroup("Mod/TechDraw/Decorations");
-    App::Color fcColor;
-    fcColor.setPackedValue(hGrp->GetUnsigned("VertexColor", 0xff000000));
-
     permaPoint = loc;
     linkGeom = -1;
-    color = fcColor;
+    color = Preferences::vertexColor();
     //TODO: size = hGrp->getFloat("VertexSize",30.0);
     size  = 30.0;
     style = 1;        //TODO: implement styled vertexes
@@ -802,17 +787,24 @@ TechDraw::BaseGeom* CenterLine::scaledGeometry(TechDraw::DrawViewPart* partFeat)
     TechDraw::BaseGeom* newGeom = nullptr;
     Base::Vector3d p1 = ends.first;
     Base::Vector3d p2 = ends.second;
-    gp_Pnt gp1(p1.x,p1.y,p1.z);
-    gp_Pnt gp2(p2.x,p2.y,p2.z);
-    TopoDS_Edge e = BRepBuilderAPI_MakeEdge(gp1, gp2);
-    TopoDS_Shape s = TechDraw::scaleShape(e, scale);
-    TopoDS_Edge newEdge = TopoDS::Edge(s);
-    newGeom = TechDraw::BaseGeom::baseFactory(newEdge);
-    newGeom->classOfEdge = ecHARD;
-    newGeom->hlrVisible = true;
-    newGeom->cosmetic = true;
-    newGeom->source(CENTERLINE);
-    newGeom->setCosmeticTag(getTagAsString());
+    if (!p1.IsEqual(p2, 0.00001)) {
+        gp_Pnt gp1(p1.x,p1.y,p1.z);
+        gp_Pnt gp2(p2.x,p2.y,p2.z);
+        TopoDS_Edge e = BRepBuilderAPI_MakeEdge(gp1, gp2);
+        TopoDS_Shape s = TechDraw::scaleShape(e, scale);
+        TopoDS_Edge newEdge = TopoDS::Edge(s);
+        newGeom = TechDraw::BaseGeom::baseFactory(newEdge);
+        newGeom->classOfEdge = ecHARD;
+        newGeom->hlrVisible = true;
+        newGeom->cosmetic = true;
+        newGeom->source(CENTERLINE);
+        newGeom->setCosmeticTag(getTagAsString());
+    } else { 
+        Base::Console().Warning("Centerline endpoints are equal. Could not draw.\n");
+        //what to do here?  //return current geom?
+        return m_geometry;  
+    }
+    
     return newGeom;
 }
 

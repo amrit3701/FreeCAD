@@ -73,6 +73,7 @@
 #include <Mod/Part/App/PartFeature.h>
 #include <Mod/Part/App/TopoShape.h>
 
+#include "Preferences.h"
 #include "GeometryObject.h"
 #include "DrawUtil.h"
 
@@ -499,9 +500,8 @@ double DrawUtil::sensibleScale(double working_scale)
 
 double DrawUtil::getDefaultLineWeight(std::string lineType)
 {
-    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter().GetGroup("BaseApp")->
-                                                    GetGroup("Preferences")->GetGroup("Mod/TechDraw/Decorations");
-    std::string lgName = hGrp->GetASCII("LineGroup","FC 0.70mm");
+    std::string lgName = Preferences::lineGroup();
+ 
     auto lg = LineGroup::lineGroupFactory(lgName);
 
     double weight = lg->getWeight(lineType);
@@ -569,6 +569,13 @@ Base::Vector3d DrawUtil::invertY(Base::Vector3d v)
     Base::Vector3d result(v.x, -v.y, v.z);
     return result;
 }
+
+QPointF DrawUtil::invertY(QPointF v)
+{
+    QPointF result(v.x(), -v.y());
+    return result;
+}
+
 
 //obs? was used in CSV prototype of Cosmetics
 std::vector<std::string> DrawUtil::split(std::string csvLine)

@@ -78,6 +78,7 @@
 
 #include <Mod/Part/App/PartFeature.h>
 
+#include "Preferences.h"
 #include "Geometry.h"
 #include "GeometryObject.h"
 #include "Cosmetic.h"
@@ -128,7 +129,7 @@ DrawViewSection::DrawViewSection()
     ADD_PROPERTY_TYPE(FuseBeforeCut ,(false),sgroup,App::Prop_None,"Merge Source(s) into a single shape before cutting");
 
     CutSurfaceDisplay.setEnums(CutSurfaceEnums);
-    ADD_PROPERTY_TYPE(CutSurfaceDisplay,((long)2),fgroup, App::Prop_None, "Appearance of Cut Surface");
+    ADD_PROPERTY_TYPE(CutSurfaceDisplay,(prefCutSurface()),fgroup, App::Prop_None, "Appearance of Cut Surface");
 
 //initialize these to defaults
     ADD_PROPERTY_TYPE(FileHatchPattern ,(DrawHatch::prefSvgHatch()),fgroup,App::Prop_None,"The hatch pattern file for the cut surface");
@@ -193,7 +194,9 @@ void DrawViewSection::onChanged(const App::Property* prop)
                 dv->requestPaint();
             }
         } else if (prop == &CutSurfaceDisplay) {
-//            Base::Console().Message("DVS::onChanged(%s)\n",prop->getName());
+            if (CutSurfaceDisplay.isValue("PatHatch")) {
+                makeLineSets();
+            }
         }
 
         if ((prop == &FileHatchPattern) &&
@@ -219,36 +222,41 @@ void DrawViewSection::onChanged(const App::Property* prop)
 
     if (prop == &FileGeomPattern    ||
         prop == &NameGeomPattern ) {
-        if (!FileGeomPattern.isEmpty()) {
-            std::string fileSpec = FileGeomPattern.getValue();
-            Base::FileInfo fi(fileSpec);
-            std::string ext = fi.extension();
-            if (!fi.isReadable()) {
-                Base::Console().Message("%s can not read hatch file: %s\n", getNameInDocument(), fileSpec.c_str());
-                Base::Console().Message("%s using included hatch file.\n", getNameInDocument());
-            } else {
-                if ( (ext == "pat") ||
-                     (ext == "PAT") ) {
-                    if ((!fileSpec.empty())  &&
-                        (!NameGeomPattern.isEmpty())) {
-                        std::vector<PATLineSpec> specs = 
-                                   DrawGeomHatch::getDecodedSpecsFromFile(fileSpec,
-                                                                          NameGeomPattern.getValue());
-                        m_lineSets.clear();
-                        for (auto& hl: specs) {
-                            //hl.dump("hl from section");
-                            LineSet ls;
-                            ls.setPATLineSpec(hl);
-                            m_lineSets.push_back(ls);
-                        }
+        makeLineSets();
+    }
+    DrawView::onChanged(prop);
+}
+
+void DrawViewSection::makeLineSets(void) 
+{
+//    Base::Console().Message("DVS::makeLineSets()\n");
+    if (!FileGeomPattern.isEmpty()) {
+        std::string fileSpec = FileGeomPattern.getValue();
+        Base::FileInfo fi(fileSpec);
+        std::string ext = fi.extension();
+        if (!fi.isReadable()) {
+            Base::Console().Message("%s can not read hatch file: %s\n", getNameInDocument(), fileSpec.c_str());
+            Base::Console().Message("%s using included hatch file.\n", getNameInDocument());
+        } else {
+            if ( (ext == "pat") ||
+                 (ext == "PAT") ) {
+                if ((!fileSpec.empty())  &&
+                    (!NameGeomPattern.isEmpty())) {
+                    std::vector<PATLineSpec> specs = 
+                               DrawGeomHatch::getDecodedSpecsFromFile(fileSpec,
+                                                                      NameGeomPattern.getValue());
+                    m_lineSets.clear();
+                    for (auto& hl: specs) {
+                        //hl.dump("hl from section");
+                        LineSet ls;
+                        ls.setPATLineSpec(hl);
+                        m_lineSets.push_back(ls);
                     }
                 }
             }
         }
     }
-    DrawView::onChanged(prop);
 }
-
 
 //this could probably always use FileHatchPattern as input?
 void DrawViewSection::replaceSvgIncluded(std::string newSvgFile)
@@ -340,7 +348,6 @@ App::DocumentObjectExecReturn *DrawViewSection::execute(void)
         }
     }
 
-
     dvp->requestPaint();  //to refresh section line
     return DrawView::execute();
 }
@@ -375,13 +382,26 @@ void DrawViewSection::sectionExec(TopoDS_Shape baseShape)
     BRepBuilderAPI_Copy BuilderCopy(baseShape);
     TopoDS_Shape myShape = BuilderCopy.Shape();
 
-    BRepAlgoAPI_Cut mkCut(myShape, prism);
-    if (!mkCut.IsDone()) {
-        Base::Console().Warning("DVS: Section cut has failed in %s\n",getNameInDocument());
-        return;
+    BRep_Builder builder;
+    TopoDS_Compound pieces;
+    builder.MakeCompound(pieces);
+    TopExp_Explorer expl(myShape, TopAbs_SOLID);
+    int indb = 0;
+    int outdb = 0;
+    for (; expl.More(); expl.Next()) {
+        indb++;
+        const TopoDS_Solid& s = TopoDS::Solid(expl.Current());
+        BRepAlgoAPI_Cut mkCut(s, prism);
+        if (!mkCut.IsDone()) {
+            Base::Console().Warning("DVS: Section cut has failed in %s\n",getNameInDocument());
+            continue;
+        }
+        TopoDS_Shape cut = mkCut.Shape();
+        builder.Add(pieces, cut);
+        outdb++;
     }
 
-    TopoDS_Shape rawShape = mkCut.Shape();
+    TopoDS_Shape rawShape = pieces;
     if (debugSection()) {
         BRepTools::Write(myShape, "DVSCopy.brep");            //debug
         BRepTools::Write(aProjFace, "DVSFace.brep");          //debug
@@ -798,7 +818,7 @@ gp_Ax2 DrawViewSection::getSectionCS(void) const
                            gXDir);
     }
     catch (...) {
-        Base::Console().Warning("DVS::getSectionCS - %s - failed to create section CS\n", getNameInDocument());
+        Base::Console().Log("DVS::getSectionCS - %s - failed to create section CS\n", getNameInDocument());
     }
     return sectionCS;
 }
@@ -886,6 +906,15 @@ bool DrawViewSection::debugSection(void) const
     return result;
 }
 
+int DrawViewSection::prefCutSurface(void) const
+{
+//    Base::Console().Message("DVS::prefCutSurface()\n");
+    Base::Reference<ParameterGrp>hGrp = App::GetApplication().GetUserParameter()
+        .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/TechDraw/Decorations");
+
+    int result = hGrp->GetInt("CutSurfaceDisplay", 2);   //default to SvgHatch
+    return result;
+}
 
 void DrawViewSection::onDocumentRestored() 
 {
@@ -907,6 +936,7 @@ void DrawViewSection::onDocumentRestored()
             if (PatIncluded.isEmpty()) {
                 setupPatIncluded();
             }
+        makeLineSets();
         }
     }
     DrawViewPart::onDocumentRestored();

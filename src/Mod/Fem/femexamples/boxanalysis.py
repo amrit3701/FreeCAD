@@ -31,7 +31,6 @@ box.setup_frequency()
 
 """
 
-
 import FreeCAD
 
 import Fem
@@ -58,9 +57,8 @@ def setup_base(doc=None, solvertype="ccxtools"):
     doc.recompute()
 
     if FreeCAD.GuiUp:
-        import FreeCADGui
         geom_obj.ViewObject.Document.activeView().viewAxonometric()
-        FreeCADGui.SendMsgToActiveView("ViewFit")
+        geom_obj.ViewObject.Document.activeView().fitAll()
 
     # analysis
     analysis = ObjectsFem.makeAnalysis(doc, "Analysis")

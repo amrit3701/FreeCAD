@@ -93,6 +93,7 @@
 #include "DocumentRecovery.h"
 #include "TransactionObject.h"
 #include "FileDialog.h"
+#include "ExpressionBindingPy.h"
 
 #include "TextDocumentEditorView.h"
 #include "SplitView3DInventor.h"
@@ -304,7 +305,7 @@ Application::Application(bool GUIenabled)
         // install the last active language
         ParameterGrp::handle hPGrp = App::GetApplication().GetUserParameter().GetGroup("BaseApp");
         hPGrp = hPGrp->GetGroup("Preferences")->GetGroup("General");
-        QString lang = QLocale::languageToString(QLocale::system().language());
+        QString lang = QLocale::languageToString(QLocale().language());
         Translator::instance()->activateLanguage(hPGrp->GetASCII("Language", (const char*)lang.toLatin1()).c_str());
         GetWidgetFactorySupplier();
 
@@ -318,7 +319,7 @@ Application::Application(bool GUIenabled)
         // Check for the symbols for group separator and decimal point. They must be different otherwise
         // Qt doesn't work properly.
 #if defined(Q_OS_WIN32)
-        if (QLocale::system().groupSeparator() == QLocale::system().decimalPoint()) {
+        if (QLocale().groupSeparator() == QLocale().decimalPoint()) {
             QMessageBox::critical(0, QLatin1String("Invalid system settings"),
                 QLatin1String("Your system uses the same symbol for decimal point and group separator.\n\n"
                               "This causes serious problems and makes the application fail to work properly.\n"
@@ -330,7 +331,7 @@ Application::Application(bool GUIenabled)
         // http://forum.freecadweb.org/viewtopic.php?f=10&t=6910
         // A workaround is to disable the group separator for double-to-string conversion, i.e.
         // setting the flag 'OmitGroupSeparator'.
-        QLocale loc = QLocale::system();
+        QLocale loc;
         loc.setNumberOptions(QLocale::OmitGroupSeparator);
         QLocale::setDefault(loc);
 #endif
@@ -383,6 +384,10 @@ Application::Application(bool GUIenabled)
         PySideUicModule* pySide = new PySideUicModule();
         Py_INCREF(pySide->module().ptr());
         PyModule_AddObject(module, "PySideUic", pySide->module().ptr());
+
+        ExpressionBindingPy::init_type();
+        Base::Interpreter().addType(ExpressionBindingPy::type_object(),
+            module,"ExpressionBinding");
 
         //insert Selection module
 #if PY_MAJOR_VERSION >= 3
@@ -518,21 +523,23 @@ void Application::open(const char* FileName, const char* Module)
 
     if (Module != 0) {
         try {
-            if(File.hasExtension("FCStd")) {
+            if (File.hasExtension("FCStd")) {
                 bool handled = false;
                 std::string filepath = File.filePath();
-                for(auto &v : d->documents) {
+                for (auto &v : d->documents) {
                     auto doc = v.second->getDocument();
                     std::string fi = Base::FileInfo(doc->FileName.getValue()).filePath();
-                    if(filepath == fi) {
+                    if (filepath == fi) {
                         handled = true;
                         Command::doCommand(Command::App, "FreeCADGui.reload('%s')", doc->getName());
                         break;
                     }
                 }
-                if(!handled)
-                    Command::doCommand(Command::App, "FreeCAD.openDocument('%s')", FileName);
-            } else {
+
+                if (!handled)
+                    Command::doCommand(Command::App, "FreeCAD.openDocument('%s')", unicodepath.c_str());
+            }
+            else {
                 // issue module loading
                 Command::doCommand(Command::App, "import %s", Module);
 
@@ -2171,25 +2178,19 @@ void Application::setStyleSheet(const QString& qssFile, bool tiledBackground)
     mw->setProperty("fc_currentStyleSheet", qssFile);
 
     if (!qssFile.isEmpty() && current != qssFile) {
-        // Search for stylesheet in user, system and resources location
-        QString user = QString::fromUtf8((App::Application::getUserAppDataDir() + "Gui/Stylesheets/").c_str());
-        QString system = QString::fromUtf8((App::Application::getResourceDir() + "Gui/Stylesheets/").c_str());
-        QString resources = QLatin1String(":/stylesheets/");
+        // Search for stylesheet in user-defined search paths.
+        // For qss they are set-up in runApplication() with the prefix "qss"
+        QString prefix(QLatin1String("qss:"));
 
         QFile f;
-        if (QFile::exists(user + qssFile)) {
-            f.setFileName(user + qssFile);
+        if (QFile::exists(qssFile)) {
+            f.setFileName(qssFile);
         }
-        else if (QFile::exists(system + qssFile)) {
-            f.setFileName(system + qssFile);
-        }
-        else if (QFile::exists(resources + qssFile)) {
-            f.setFileName(resources + qssFile);
-        }
-        else {
+        else if (QFile::exists(prefix + qssFile)) {
+            f.setFileName(prefix + qssFile);
         }
 
-        if (f.open(QFile::ReadOnly | QFile::Text)) {
+        if (!f.fileName().isEmpty() && f.open(QFile::ReadOnly | QFile::Text)) {
             mdi->setBackground(QBrush(Qt::NoBrush));
             QTextStream str(&f);
             qApp->setStyleSheet(str.readAll());
