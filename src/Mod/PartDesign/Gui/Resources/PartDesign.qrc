@@ -6,12 +6,14 @@
         <file>icons/PartDesign_Additive_Ellipsoid.svg</file>
         <file>icons/PartDesign_Additive_Loft.svg</file>
         <file>icons/PartDesign_Additive_Pipe.svg</file>
+        <file>icons/PartDesign_Additive_Helix.svg</file>
         <file>icons/PartDesign_Additive_Prism.svg</file>
         <file>icons/PartDesign_Additive_Sphere.svg</file>
         <file>icons/PartDesign_Additive_Torus.svg</file>
         <file>icons/PartDesign_Additive_Wedge.svg</file>
         <file>icons/PartDesign_BaseFeature.svg</file>
         <file>icons/PartDesign_Body.svg</file>
+        <file alias="icons/PartDesign_Body_Create_New.svg">icons/PartDesign_Body.svg</file>
         <file>icons/PartDesign_Body_old.svg</file>
         <file>icons/PartDesign_Body_Tree.svg</file>
         <file>icons/PartDesign_Boolean.svg</file>
@@ -20,13 +22,17 @@
         <file>icons/PartDesign_CoordinateSystem.svg</file>
         <file>icons/PartDesign_Draft.svg</file>
         <file>icons/PartDesign_Fillet.svg</file>
+        <file>icons/PartDesign_Flip_Direction.svg</file>
         <file>icons/PartDesign_Groove.svg</file>
         <file>icons/PartDesign_Hole.svg</file>
         <file>icons/PartDesign_InternalExternalGear.svg</file>
         <file>icons/PartDesign_InvoluteGear.svg</file>
         <file>icons/PartDesign_Line.svg</file>
         <file>icons/PartDesign_LinearPattern.svg</file>
+        <file>icons/PartDesign_Migrate.svg</file>
         <file>icons/PartDesign_Mirrored.svg</file>
+        <file>icons/PartDesign_MoveFeature.svg</file>
+        <file>icons/PartDesign_MoveFeatureInTree.svg</file>
         <file>icons/PartDesign_MoveTip.svg</file>
         <file>icons/PartDesign_MultiTransform.svg</file>
         <file>icons/PartDesign_Pad.svg</file>
@@ -45,6 +51,7 @@
         <file>icons/PartDesign_Subtractive_Ellipsoid.svg</file>
         <file>icons/PartDesign_Subtractive_Loft.svg</file>
         <file>icons/PartDesign_Subtractive_Pipe.svg</file>
+        <file>icons/PartDesign_Subtractive_Helix.svg</file>
         <file>icons/PartDesign_Subtractive_Prism.svg</file>
         <file>icons/PartDesign_Subtractive_Sphere.svg</file>
         <file>icons/PartDesign_Subtractive_Torus.svg</file>

@@ -22,16 +22,18 @@
 # *   USA                                                                   *
 # *                                                                         *
 # ***************************************************************************
-"""Provides tools for downgrading objects with the Draft Workbench.
+"""Provides GUI tools to downgrade objects.
 
 Downgrades 2D objects to simpler objects until it reaches
 simple Edge primitives. For example, a Draft Line to wire, and then
 to a series of edges.
 """
 ## @package gui_downgrade
-# \ingroup DRAFT
-# \brief Provides tools for downgrading objects with the Draft Workbench.
+# \ingroup draftguitools
+# \brief Provides GUI tools to downgrade objects.
 
+## \addtogroup draftguitools
+# @{
 from PySide.QtCore import QT_TRANSLATE_NOOP
 
 import FreeCADGui as Gui
@@ -69,17 +71,14 @@ class Downgrade(gui_base_original.Modifier):
             if not Gui.Selection.getSelection():
                 self.ui.selectUi()
                 _msg(translate("draft", "Select an object to upgrade"))
-                self.call = \
-                    self.view.addEventCallback("SoEvent",
-                                               gui_tool_utils.selectObject)
+                self.call = self.view.addEventCallback(
+                    "SoEvent",
+                    gui_tool_utils.selectObject)
             else:
                 self.proceed()
 
     def proceed(self):
         """Proceed with execution of the command after selection."""
-        if self.call:
-            self.view.removeEventCallback("SoEvent", self.call)
-
         if Gui.Selection.getSelection():
             Gui.addModule("Draft")
             _cmd = 'Draft.downgrade'
@@ -87,7 +86,7 @@ class Downgrade(gui_base_original.Modifier):
             _cmd += 'FreeCADGui.Selection.getSelection(), '
             _cmd += 'delete=True'
             _cmd += ')'
-            _cmd_list = ['d = ' + _cmd,
+            _cmd_list = ['_objs_ = ' + _cmd,
                          'FreeCAD.ActiveDocument.recompute()']
             self.commit(translate("draft", "Downgrade"),
                         _cmd_list)
@@ -95,3 +94,5 @@ class Downgrade(gui_base_original.Modifier):
 
 
 Gui.addCommand('Draft_Downgrade', Downgrade())
+
+## @}

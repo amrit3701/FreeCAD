@@ -22,17 +22,19 @@
 # *   USA                                                                   *
 # *                                                                         *
 # ***************************************************************************
-"""Provides tools for creating straight lines with the Draft Workbench.
+"""Provides GUI tools to create straight Line and Wire objects.
 
 The Line class is used by other Gui Commands that behave in a similar way
 like Wire, BSpline, and BezCurve.
 """
 ## @package gui_lines
-# \ingroup DRAFT
-# \brief Provides tools for creating straight lines with the Draft Workbench.
+# \ingroup draftguitools
+# \brief Provides GUI tools to create straight Line and Wire objects.
 
-from PySide.QtCore import QT_TRANSLATE_NOOP
+## \addtogroup draftguitools
+# @{
 import sys
+from PySide.QtCore import QT_TRANSLATE_NOOP
 
 import FreeCAD as App
 import FreeCADGui as Gui
@@ -42,6 +44,7 @@ import draftutils.gui_utils as gui_utils
 import draftutils.todo as todo
 import draftguitools.gui_base_original as gui_base_original
 import draftguitools.gui_tool_utils as gui_tool_utils
+
 from draftutils.messages import _msg, _err
 from draftutils.translate import translate
 
@@ -119,9 +122,13 @@ class Line(gui_base_original.Creator):
                 if not self.isWire and len(self.node) == 2:
                     self.finish(False, cont=True)
                 if len(self.node) > 2:
+                    # The wire is closed
                     if (self.point - self.node[0]).Length < utils.tolerance():
                         self.undolast()
-                        self.finish(True, cont=True)
+                        if len(self.node) > 2:
+                            self.finish(True, cont=True)
+                        else:
+                            self.finish(False, cont=True)
 
     def finish(self, closed=False, cont=False):
         """Terminate the operation and close the polyline if asked.
@@ -361,3 +368,5 @@ class Wire(Line):
 
 
 Gui.addCommand('Draft_Wire', Wire())
+
+## @}

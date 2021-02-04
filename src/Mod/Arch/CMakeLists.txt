@@ -14,6 +14,7 @@ SET(Arch_SRCS
     importIFC.py
     importIFClegacy.py
     importIFCHelper.py
+    importIFCmulticore.py
     exportIFCHelper.py
     Arch.py
     ArchBuilding.py
@@ -25,6 +26,7 @@ SET(Arch_SRCS
     importDAE.py
     importOBJ.py
     ArchWindow.py
+    ArchWindowPresets.py
     ArchAxis.py
     ArchVRM.py
     ArchRoof.py
@@ -53,6 +55,8 @@ SET(Arch_SRCS
     exportIFC.py
     ArchTruss.py
     ArchCurtainWall.py
+    importSHP.py
+    exportIFCStructuralTools.py
 )
 
 SET(Dice3DS_SRCS

@@ -82,7 +82,7 @@ Wie Sie FreeCAD selbst kompilieren können, der FreeCAD-Quellcode strukturiert i
     <message>
       <location filename="../../../StartPage/TranslationTexts.py" line="57"/>
       <source>Manual</source>
-      <translation>Dokumentation</translation>
+      <translation>Anleitung</translation>
     </message>
     <message>
       <location filename="../../../StartPage/TranslationTexts.py" line="58"/>
@@ -452,7 +452,7 @@ Wie Sie FreeCAD selbst kompilieren können, der FreeCAD-Quellcode strukturiert i
     <message>
       <location filename="../../DlgStartPreferences.ui" line="596"/>
       <source>Switch workbench after loading</source>
-      <translation>Nach dem Laden Werkbank wechseln</translation>
+      <translation>Nach dem Laden Arbeitsbereich wechseln</translation>
     </message>
     <message>
       <location filename="../../DlgStartPreferences.ui" line="603"/>

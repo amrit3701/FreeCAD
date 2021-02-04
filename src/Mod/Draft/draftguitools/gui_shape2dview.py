@@ -22,16 +22,18 @@
 # *   USA                                                                   *
 # *                                                                         *
 # ***************************************************************************
-"""Provides tools for projecting objects into a 2D plane.
+"""Provides GUI tools to project an object into a 2D plane.
 
 This creates a 2D shape in the 3D view itself. This projection
 can be further used to create a technical drawing using
 the TechDraw Workbench.
 """
 ## @package gui_shape2dview
-# \ingroup DRAFT
-# \brief Provides tools for projecting objects into a 2D plane.
+# \ingroup draftguitools
+# \brief Provides GUI tools to project an object into a 2D plane.
 
+## \addtogroup draftguitools
+# @{
 from PySide.QtCore import QT_TRANSLATE_NOOP
 
 import FreeCADGui as Gui
@@ -39,6 +41,7 @@ import DraftVecUtils
 import Draft_rc
 import draftguitools.gui_base_original as gui_base_original
 import draftguitools.gui_tool_utils as gui_tool_utils
+
 from draftutils.messages import _msg
 from draftutils.translate import translate, _tr
 
@@ -72,17 +75,14 @@ class Shape2DView(gui_base_original.Modifier):
             if self.ui:
                 self.ui.selectUi()
                 _msg(translate("draft", "Select an object to project"))
-                self.call = \
-                    self.view.addEventCallback("SoEvent",
-                                               gui_tool_utils.selectObject)
+                self.call = self.view.addEventCallback(
+                    "SoEvent",
+                    gui_tool_utils.selectObject)
         else:
             self.proceed()
 
     def proceed(self):
         """Proceed with the command if one object was selected."""
-        if self.call:
-            self.view.removeEventCallback("SoEvent", self.call)
-
         faces = []
         objs = []
         vec = Gui.ActiveDocument.ActiveView.getViewDirection().negative()
@@ -121,3 +121,5 @@ class Shape2DView(gui_base_original.Modifier):
 
 
 Gui.addCommand('Draft_Shape2DView', Shape2DView())
+
+## @}

@@ -129,7 +129,7 @@ from menu Tools -> Addon Manager""")
                     QtGui.QMessageBox.information(None, "", message)
                 else:
                     FCC.PrintWarning("The DXF import/export libraries needed by FreeCAD to handle the DXF format are not installed.\n")
-                    FCC.PrintWarning("Please install the dxf Library addon from Tools -> Addons Manager\n")
+                    FCC.PrintWarning("Please install the dxf Library addon from Tools -> Addon Manager\n")
                 break
         progressbar.stop()
         sys.path.append(FreeCAD.ConfigGet("UserAppData"))
@@ -160,7 +160,7 @@ To enabled FreeCAD to download these libraries, answer Yes.""")
             _maj = _ver[0]
             _min = _ver[1]
             if float(_maj + "." + _min) >= 0.17:
-                FCC.PrintWarning("Please install the dxf Library addon from Tools -> Addons Manager\n")
+                FCC.PrintWarning("Please install the dxf Library addon from Tools -> Addon Manager\n")
             else:
                 FCC.PrintWarning("Please check https://github.com/yorikvanhavre/Draft-dxf-importer\n")
 
@@ -785,7 +785,7 @@ def placementFromDXFOCS(ent):
     Parameters
     ----------
     ent : A DXF entity
-        It could be of several types, like `lwpolyline`, `polynine`,
+        It could be of several types, like `lwpolyline`, `polyline`,
         and others, and with `ent.extrusion`, `ent.elevation`
         or `ent.loc` attributes.
 
@@ -802,6 +802,30 @@ def placementFromDXFOCS(ent):
     draftWPlane = FreeCAD.DraftWorkingPlane
     draftWPlane.alignToPointAndAxis(Vector(0.0, 0.0, 0.0),
                                     vec(ent.extrusion), 0.0)
+    # Object Coordinate Systems (OCS)
+    # http://docs.autodesk.com/ACD/2011/ENU/filesDXF/WS1a9193826455f5ff18cb41610ec0a2e719-7941.htm
+    # Arbitrary Axis Algorithm
+    # http://docs.autodesk.com/ACD/2011/ENU/filesDXF/WS1a9193826455f5ff18cb41610ec0a2e719-793d.htm#WSc30cd3d5faa8f6d81cb25f1ffb755717d-7ff5
+    # Riferimenti dell'algoritmo dell'asse arbitrario in italiano 
+    # http://docs.autodesk.com/ACD/2011/ITA/filesDXF/WS1a9193826455f5ff18cb41610ec0a2e719-7941.htm
+    # http://docs.autodesk.com/ACD/2011/ITA/filesDXF/WS1a9193826455f5ff18cb41610ec0a2e719-793d.htm#WSc30cd3d5faa8f6d81cb25f1ffb755717d-7ff5
+    if (draftWPlane.axis == FreeCAD.Vector(1.0, 0.0, 0.0)):
+        draftWPlane.u = FreeCAD.Vector(0.0, 1.0, 0.0)
+        draftWPlane.v = FreeCAD.Vector(0.0, 0.0, 1.0)
+    elif (draftWPlane.axis == FreeCAD.Vector(-1.0, 0.0, 0.0)):
+        draftWPlane.u = FreeCAD.Vector(0.0, -1.0, 0.0)
+        draftWPlane.v = FreeCAD.Vector(0.0, 0.0, 1.0)
+    else:
+        if ((abs(ent.extrusion[0]) < (1.0 / 64.0)) and (abs(ent.extrusion[1]) < (1.0 / 64.0))):
+            draftWPlane.u = FreeCAD.Vector(0.0, 1.0, 0.0).cross(draftWPlane.axis)
+        else:
+            draftWPlane.u = FreeCAD.Vector(0.0, 0.0, 1.0).cross(draftWPlane.axis)
+        draftWPlane.u.normalize()
+        draftWPlane.v = draftWPlane.axis.cross(draftWPlane.u)
+        draftWPlane.v.normalize()
+        draftWPlane.position = Vector(0.0, 0.0, 0.0)
+        draftWPlane.weak = False
+    
     pl = FreeCAD.Placement()
     pl = draftWPlane.getPlacement()
     if ((ent.type == "lwpolyline") or (ent.type == "polyline")):
@@ -2196,7 +2220,7 @@ def processdxf(document, filename, getShapes=False, reComputeFlag=True):
                     drawstyle = "Dashdot"
                 locateLayer(name, color, drawstyle)
     else:
-        locateLayer("0", [0.0, 0.0, 0.0], "Solid")
+        locateLayer("0", (0.0, 0.0, 0.0), "Solid")
 
      # Draw lines
     lines = drawing.entities.get_type("line")
@@ -3599,7 +3623,7 @@ def export(objectslist, filename, nospline=False, lwPoly=False):
     if dxfLibrary:
         global exportList
         exportList = objectslist
-        exportList = Draft.getGroupContents(exportList)
+        exportList = Draft.get_group_contents(exportList)
 
         nlist = []
         exportLayers = []
@@ -3800,7 +3824,7 @@ def export(objectslist, filename, nospline=False, lwPoly=False):
                                                    style='STANDARD',
                                                    layer=getStrGroup(ob)))
 
-                elif Draft.getType(ob) == "DraftText":
+                elif Draft.getType(ob) in ("DraftText","Text"):
                     # texts
                     if gui:
                         height = float(ob.ViewObject.FontSize)
@@ -3932,7 +3956,7 @@ def exportPage(page, filename):
     c = dxfcounter()
     pat = re.compile("(_handle_)")
     template = pat.sub(c.incr, template)
-    f = pythonopen(filename, "wb")
+    f = pythonopen(filename, "w")
     f.write(template)
     f.close()
 
