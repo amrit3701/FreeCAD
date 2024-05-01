@@ -33,7 +33,7 @@ import FreeCAD
 from draftutils import params
 
 ifcVersions = ["IFC4", "IFC2X3"]
-IfcVersion = ifcVersions[params.get_param_arch("IfcVersion")]
+IfcVersion = ifcVersions[params.get_param_arch("IfcVersion") or 0]
 
 with open(os.path.join(FreeCAD.getResourceDir(), "Mod", "Arch", "Presets",
 "ifc_contexts_" + IfcVersion + ".json")) as f:

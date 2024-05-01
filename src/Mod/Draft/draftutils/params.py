@@ -27,8 +27,6 @@ import PySide.QtCore as QtCore
 import xml.etree.ElementTree as ET
 
 import FreeCAD as App
-import Draft_rc
-import Arch_rc
 
 from draftutils import init_draft_statusbar
 from draftutils.translate import translate
